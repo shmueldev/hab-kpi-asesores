@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+*.log
+
+# Secretos y datos locales
+backend/config/users.json
+backend/.cache/
+
+# Entorno de esta PC
+.tools/
+.cursor/
+*.local
+
+.DS_Store
+Thumbs.db
+
+

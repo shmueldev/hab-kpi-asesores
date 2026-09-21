@@ -1,0 +1,21 @@
+{
+  "users": [
+    {
+      "username": "admin",
+      "password_hash": "$2b$12$rY8ExbVMzUKqLCUm.fbvbuJ7NmqNv4X/BsPGjtx6xo6rQz8YuJnlW",
+      "role": "admin",
+      "asesor_key": null,
+      "nombre": "Administrador",
+      "must_change_password": true
+    },
+    {
+      "username": "fcastro",
+      "password_hash": "$2b$12$rY8ExbVMzUKqLCUm.fbvbuJ7NmqNv4X/BsPGjtx6xo6rQz8YuJnlW",
+      "role": "asesor",
+      "asesor_key": 1,
+      "vendedor_rowid": 45,
+      "nombre": "Fernando Castro Moreno",
+      "must_change_password": true
+    }
+  ]
+}
