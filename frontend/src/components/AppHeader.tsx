@@ -37,10 +37,10 @@ export default function AppHeader({ subtitle, backTo, onReplayTour }: Props) {
           {user.nombre || user.username} · {user.role === 'admin' ? 'gerente' : 'asesor'} · {subtitle}
         </p>
       </div>
-      <div className="header-tools">
+      <div className="header-tools no-print">
         {onReplayTour && (
           <button
-            className="ghost"
+            className="ghost no-print"
             type="button"
             data-tour="guia"
             onClick={() => {
@@ -52,10 +52,23 @@ export default function AppHeader({ subtitle, backTo, onReplayTour }: Props) {
           </button>
         )}
         {backTo && (
-          <button className="ghost" type="button" onClick={() => navigate(backTo)}>
+          <button className="ghost no-print" type="button" onClick={() => navigate(backTo)}>
             Volver
           </button>
         )}
+        <button
+          className="icon-btn no-print"
+          type="button"
+          onClick={() => window.print()}
+          aria-label="Imprimir o guardar PDF"
+          title="Imprimir / PDF para junta"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden>
+            <path d="M7 8V4.8h10V8" fill="none" stroke="currentColor" strokeWidth="1.8" />
+            <rect x="6" y="13.5" width="12" height="6.2" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.8" />
+            <path d="M6 11.2H4.6A1.6 1.6 0 0 1 3 9.6V8.4A1.6 1.6 0 0 1 4.6 6.8h14.8A1.6 1.6 0 0 1 21 8.4v1.2a1.6 1.6 0 0 1-1.6 1.6H18" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          </svg>
+        </button>
         <ThemeToggle />
         <button
           className="icon-btn"

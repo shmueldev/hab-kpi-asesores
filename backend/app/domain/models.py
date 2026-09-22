@@ -160,6 +160,56 @@ class CarteraFilter(BaseModel):
     trimestre: int | None = None
 
 
+class PedidoFilter(BaseModel):
+    fecha_ini: date
+    fecha_fin: date
+    asesor_key: int | None = None
+    nit: str | None = None
+
+
+class PedidoCanal(BaseModel):
+    canal: str
+    es_autogestion: bool = False
+    n: int = 0
+    valor: float = 0.0
+
+
+class PedidoCliente(BaseModel):
+    nit: str | None = None
+    nombre: str
+    n: int = 0
+    valor: float = 0.0
+
+
+class PedidoRow(BaseModel):
+    fecha_pedido: date | None = None
+    numero: int | None = None
+    nit: str | None = None
+    cliente: str | None = None
+    canal: str | None = None
+    valor: float = 0.0
+    anulado: bool = False
+    espera: bool = False
+    fecha_despacho: date | None = None
+
+
+class PedidoResumen(BaseModel):
+    fecha_ini: date
+    fecha_fin: date
+    n: int = 0
+    valor: float = 0.0
+    n_anulados: int = 0
+    n_espera: int = 0
+    n_despachados: int = 0
+    por_canal: list[PedidoCanal] = Field(default_factory=list)
+    top_clientes: list[PedidoCliente] = Field(default_factory=list)
+    detalle: list[PedidoRow] = Field(default_factory=list)
+    detalle_tope: int = 200
+    fuente: DataFuente = "sql"
+    asesor_key: int | None = None
+    asesor_nombre: str | None = None
+
+
 class Asesor(BaseModel):
     asesor_key: int
     nombre: str

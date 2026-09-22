@@ -5,6 +5,8 @@ import AppHeader from '../components/AppHeader'
 import BikeLoader from '../components/BikeLoader'
 import BreakdownTable from '../components/BreakdownTable'
 import KpiCard, { sparkDeltaPp } from '../components/KpiCard'
+import KpiSkeleton from '../components/KpiSkeleton'
+import ScopeBanner from '../components/ScopeBanner'
 import MonthlyKpiTable, { type KpiId } from '../components/MonthlyKpiTable'
 import {
   ComboMonthChart,
@@ -15,7 +17,7 @@ import {
   TrendLineChart,
 } from '../components/KpiCharts'
 import { kpiCacheKey, readKpiCache, readLastSnapshot, writeKpiCache } from '../kpiCache'
-import { loadPeriod, periodLabel, rangeFromPeriod } from '../period'
+import { loadPeriod, periodLabel, rangeFromPeriod, selectedAsesorKey } from '../period'
 
 const TITLES: Record<KpiId, string> = {
   cumplimiento: 'Cumplimiento de presupuesto',
@@ -76,8 +78,19 @@ export default function KpiDetail() {
     <div className="app-shell hud">
       <AppHeader subtitle={`${TITLES[id]} · ${periodLabel(period)}`} backTo="/" />
       <main className="dashboard detail-page">
+        <ScopeBanner
+          visible={
+            (JSON.parse(localStorage.getItem('kpi_user') || '{}') as { role?: string }).role === 'admin' &&
+            selectedAsesorKey() == null
+          }
+        />
         {error && <div className="error banner">{error}</div>}
-        {!data && !error && <BikeLoader label={`El asesor va por ${periodLabel(period)}…`} />}
+        {!data && !error && (
+          <>
+            <BikeLoader label={`El asesor va por ${periodLabel(period)}…`} />
+            <KpiSkeleton />
+          </>
+        )}
         {data && (
           <div className="board-enter">
             <p className="detail-lead">

@@ -22,6 +22,19 @@ Fuente SQL: `dbo.fact_presupuesto`, `dbo.fact_ventas`, `dbo.dim_trm`, `dbo.fact_
 
 - **venta_autogestion**: ventas cuyo `NUMEROPEDIDO` está en `fact_pedido` con `dim_canal_pedido.es_autogestion = 1`.
 
+## Pedidos (`fact_pedido`)
+
+No hay embudo ni heatmap: no existen tablas de prospectos, visitas ni un dim de `idestado`.
+
+Lo que sí se muestra, con columnas reales:
+
+- **n / valor**: `COUNT(*)` y `SUM(curvalorpedido)` entre `fecha_pedido` del periodo.
+- **canal**: `dim_canal_pedido.canal` (AUTOGESTION, B2B, SHOPIFY, …).
+- **intidvendedor** = `asesor_key` (el cruce existe).
+- **anulados / espera / despacho**: flags `intanulado`, `intespera`, `fecha_despacho`. No se traducen a etapas inventadas.
+
+El detalle del API se recorta a las 200 filas más recientes.
+
 ## Validación
 
 Para un rango fijo y un `asesor_key` conocido, los tres % deben coincidir con una query de control sobre las mismas tablas. Si SQL no responde, el API sirve el último snapshot de Redis y lo declara en `fuente=redis`.

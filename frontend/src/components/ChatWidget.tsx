@@ -3,6 +3,7 @@ import { askChat } from '../api/client'
 import { useChatDock } from '../chat/ChatContext'
 import { localKpiReply } from '../chat/localHelper'
 import { formatPct } from './KpiCharts'
+import ChatMascot from './ChatMascot'
 import { readLastSnapshot } from '../kpiCache'
 import { periodLabel } from '../period'
 
@@ -14,6 +15,8 @@ type Msg = {
 }
 
 let nextId = 1
+const HELLO_AT = 'kpi_chat_hello_at'
+const HELLO_EVERY_MS = 12 * 60 * 1000
 
 export default function ChatWidget() {
   const { open, toggle, close } = useChatDock()
@@ -21,27 +24,59 @@ export default function ChatWidget() {
   const period = snap?.period ? periodLabel(snap.period) : 'periodo no cargado'
   const data = snap?.data ?? null
   const listRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  const [messages, setMessages] = useState<Msg[]>(() => [
-    {
-      id: nextId++,
-      role: 'assistant',
-      text: 'Pregunta por cumplimiento, crecimiento o autogestión del periodo que ya cargaste.',
-      source: 'local',
-    },
-  ])
+  const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const [hello, setHello] = useState('')
+  const [canWrite, setCanWrite] = useState(true)
+  const [greeting, setGreeting] = useState(false)
+  const started = messages.some((msg) => msg.role === 'user')
 
   useEffect(() => {
     const node = listRef.current
     if (node) node.scrollTop = node.scrollHeight
-  }, [messages, open])
+  }, [messages, open, hello])
+
+  useEffect(() => {
+    if (!open) {
+      setGreeting(false)
+      setCanWrite(true)
+      return
+    }
+    const last = Number(sessionStorage.getItem(HELLO_AT) || 0)
+    const due = !last || Date.now() - last > HELLO_EVERY_MS
+    if (!due) {
+      setGreeting(false)
+      setCanWrite(true)
+      setHello((prev) => prev || 'Pregunta por cumplimiento, crecimiento o autogestión.')
+      inputRef.current?.focus()
+      return
+    }
+    setGreeting(true)
+    setHello('')
+    setCanWrite(false)
+    const who = data?.asesor_nombre || 'el tablero'
+    const say = window.setTimeout(() => {
+      setHello(`Hola, soy HAB Bot. ¿En qué te ayudo con ${who} · ${period}?`)
+    }, 500)
+    const unlock = window.setTimeout(() => {
+      sessionStorage.setItem(HELLO_AT, String(Date.now()))
+      setGreeting(false)
+      setCanWrite(true)
+      inputRef.current?.focus()
+    }, 1800)
+    return () => {
+      window.clearTimeout(say)
+      window.clearTimeout(unlock)
+    }
+  }, [open, data?.asesor_nombre, period])
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     const text = input.trim()
-    if (!text || busy) return
+    if (!text || busy || !canWrite) return
     setInput('')
     setMessages((prev) => [...prev, { id: nextId++, role: 'user', text }])
     setBusy(true)
@@ -62,15 +97,17 @@ export default function ChatWidget() {
     <>
       <button
         type="button"
-        className={`chat-tab${open ? ' is-open' : ''}`}
+        className={`chat-tab no-print${open ? ' is-open' : ''}`}
         data-tour="chat"
         onClick={toggle}
         aria-expanded={open}
         aria-controls="chat-dock"
+        aria-label={open ? 'Cerrar chat' : 'Abrir chat'}
+        title="Chat de KPIs"
       >
         Chat
       </button>
-      <aside id="chat-dock" className={`chat-dock${open ? ' is-open' : ''}`} aria-hidden={!open}>
+      <aside id="chat-dock" className={`chat-dock no-print${open ? ' is-open' : ''}`} aria-hidden={!open}>
         <header className="chat-panel-head">
           <div>
             <h2>Consulta de KPIs</h2>
@@ -89,13 +126,31 @@ export default function ChatWidget() {
           </p>
         )}
         <div className="chat-messages" ref={listRef} aria-live="polite">
+          {(!started || greeting) && (
+            <div className="chat-hero">
+              <div className="chat-hero-frame">
+                <ChatMascot size={132} />
+              </div>
+              <p className="chat-hero-title">HAB Bot</p>
+              <p className={`chat-hero-text${hello ? ' is-on' : ''}`}>
+                {hello || '…'}
+              </p>
+            </div>
+          )}
           {messages.map((msg) => (
             <article key={msg.id} className={`chat-bubble ${msg.role}`}>
-              <p>{msg.text}</p>
-              {msg.role === 'assistant' && (
-                <span className="chat-source">
-                  {msg.source === 'openai' ? 'Modelo con el snapshot actual' : 'Ayuda local'}
-                </span>
+              {msg.role === 'assistant' ? (
+                <div className="chat-bubble-row">
+                  <ChatMascot size={36} className="chat-bubble-face" />
+                  <div>
+                    <p>{msg.text}</p>
+                    <span className="chat-source">
+                      {msg.source === 'openai' ? 'Modelo con el snapshot actual' : 'Ayuda local'}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <p>{msg.text}</p>
               )}
             </article>
           ))}
@@ -105,13 +160,14 @@ export default function ChatWidget() {
           <div className="chat-composer-row">
             <input
               id="chat-input"
+              ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="¿Cómo va el cumplimiento?"
+              placeholder={canWrite ? '¿Cómo va el cumplimiento?' : 'Espera el saludo…'}
               autoComplete="off"
-              disabled={busy}
+              disabled={!canWrite || busy}
             />
-            <button type="submit" disabled={busy || !input.trim()}>
+            <button type="submit" disabled={!canWrite || busy || !input.trim()}>
               Enviar
             </button>
           </div>

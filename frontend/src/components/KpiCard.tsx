@@ -183,7 +183,7 @@ export default function KpiCard({
           <div className="kpi-track">
             <span className="kpi-track-fill" style={{ width: `${bar}%`, background: barColor }} />
           </div>
-          <span className="kpi-track-pct">{bar.toFixed(1)}%</span>
+          <span className="kpi-track-pct">{Math.round(bar)}%</span>
         </div>
       )}
       {onOpen ? <span className="open-hint">Ver detalle →</span> : null}
@@ -196,7 +196,7 @@ export function sparkDeltaPp(values: number[], vs = 'vs mes anterior'): { tone: 
   const diff = values[values.length - 1] - values[values.length - 2]
   const tone = diff > 0 ? 'ok' : diff < 0 ? 'bad' : 'neutral'
   const sign = diff > 0 ? '▲ +' : diff < 0 ? '▼ ' : '● '
-  return { tone, label: `${sign}${(diff * 100).toFixed(1)} pp ${vs}` }
+  return { tone, label: `${sign}${Math.round(diff * 100)} pp ${vs}` }
 }
 
 export function sparkDeltaPct(values: number[], vs = 'vs foto anterior'): { tone: 'ok' | 'bad' | 'neutral'; label: string } | null {
@@ -206,5 +206,5 @@ export function sparkDeltaPct(values: number[], vs = 'vs foto anterior'): { tone
   const diff = prev === 0 ? 0 : (last - prev) / Math.abs(prev)
   const tone = last > prev ? 'ok' : last < prev ? 'bad' : 'neutral'
   const sign = last > prev ? '▲ +' : last < prev ? '▼ ' : '● '
-  return { tone, label: `${sign}${(diff * 100).toFixed(1)}% ${vs}` }
+  return { tone, label: `${sign}${Math.round(diff * 100)}% ${vs}` }
 }

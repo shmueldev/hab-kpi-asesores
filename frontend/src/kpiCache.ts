@@ -1,4 +1,11 @@
-import type { CarteraAbierta, KpiDashboard, KpiMonthlyBreakdown } from './api/client'
+import type {
+  CarteraAbierta,
+  CarteraAging,
+  CarteraCanceladas,
+  CarteraSiesaSaldo,
+  KpiDashboard,
+  KpiMonthlyBreakdown,
+} from './api/client'
 import type { PeriodState } from './period'
 
 export const LAST_KPI = 'kpi_snapshot'
@@ -78,5 +85,41 @@ export function readLastSnapshot(): { data: KpiDashboard; period?: PeriodState }
     return JSON.parse(raw) as { data: KpiDashboard; period?: PeriodState }
   } catch {
     return null
+  }
+}
+
+export type CarteraPack = {
+  aging: CarteraAging
+  siesa: CarteraSiesaSaldo | null
+  canceladas: CarteraCanceladas | null
+}
+
+const CARTERA = 'cartera_pack:'
+const carteraMemory = new Map<string, CarteraPack>()
+
+export function carteraCacheKey(asOf: string, anio: number, trimestre: number | null, asesorKey?: number | null) {
+  return `${asOf}|${anio}|${trimestre ?? 'y'}|${asesorKey ?? 'all'}`
+}
+
+export function readCarteraPack(key: string): CarteraPack | null {
+  const hit = carteraMemory.get(key)
+  if (hit) return hit
+  try {
+    const raw = sessionStorage.getItem(CARTERA + key)
+    if (!raw) return null
+    const pack = JSON.parse(raw) as CarteraPack
+    carteraMemory.set(key, pack)
+    return pack
+  } catch {
+    return null
+  }
+}
+
+export function writeCarteraPack(key: string, pack: CarteraPack) {
+  carteraMemory.set(key, pack)
+  try {
+    sessionStorage.setItem(CARTERA + key, JSON.stringify(pack))
+  } catch {
+    /* quota: se queda en memoria de la pestaña */
   }
 }

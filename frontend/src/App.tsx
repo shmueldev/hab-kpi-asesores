@@ -1,10 +1,12 @@
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { ChatProvider } from './chat/ChatContext'
+import BackToTop from './components/BackToTop'
 import ChatWidget from './components/ChatWidget'
 import ChangePassword from './pages/ChangePassword'
 import CarteraDetail from './pages/CarteraDetail'
 import Dashboard from './pages/Dashboard'
 import KpiDetail from './pages/KpiDetail'
+import PedidosDetail from './pages/PedidosDetail'
 import Login from './pages/Login'
 import RecoverPassword from './pages/RecoverPassword'
 
@@ -26,6 +28,7 @@ function PrivateLayout() {
     <ChatProvider>
       <AnimatedPage />
       <ChatWidget />
+      <BackToTop />
     </ChatProvider>
   )
 }
@@ -48,6 +51,7 @@ export default function App() {
       <Route element={<PrivateLayout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/detalle/cartera" element={<CarteraDetail />} />
+        <Route path="/detalle/pedidos" element={<PedidosDetail />} />
         <Route path="/detalle/:kpi" element={<KpiDetail />} />
         <Route path="/cartera" element={<Navigate to="/detalle/cartera" replace />} />
         <Route path="/cartera/:vista" element={<Navigate to="/detalle/cartera" replace />} />

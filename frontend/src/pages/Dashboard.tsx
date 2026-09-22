@@ -7,14 +7,20 @@ import {
   fetchCarteraAbierta,
   fetchKpiMeses,
   fetchKpis,
+  fetchPedidos,
   KpiDashboard,
   KpiMonthlyBreakdown,
+  PedidoResumen,
 } from '../api/client'
+import AlertBanner from '../components/AlertBanner'
 import AppHeader from '../components/AppHeader'
 import BikeLoader from '../components/BikeLoader'
 import BreakdownTable from '../components/BreakdownTable'
+import CompareStrip from '../components/CompareStrip'
 import KpiCard, { sparkDeltaPct, sparkDeltaPp } from '../components/KpiCard'
+import KpiSkeleton from '../components/KpiSkeleton'
 import OnboardingTour from '../components/OnboardingTour'
+import ScopeBanner from '../components/ScopeBanner'
 import {
   formatMoney,
   formatPct,
@@ -25,6 +31,7 @@ import {
 } from '../components/KpiCharts'
 import { kpiCacheKey, readDashPack, writeDashPack, writeKpiCache } from '../kpiCache'
 import {
+  isPastQuarterMidpoint,
   isQuarterOpen,
   lastOpenQuarter,
   loadPeriod,
@@ -60,6 +67,8 @@ export default function Dashboard() {
   const [carteraSpark, setCarteraSpark] = useState<number[]>([])
   const [meses, setMeses] = useState<KpiMonthlyBreakdown | null>(null)
   const [ready, setReady] = useState(false)
+  const [equipo, setEquipo] = useState<KpiDashboard | null>(null)
+  const [pedidos, setPedidos] = useState<PedidoResumen | null>(null)
 
   const selectedKey = user.role === 'asesor' ? user.asesor_key ?? null : period.asesorKey === '' ? null : period.asesorKey
   const range = rangeFromPeriod(period)
@@ -79,11 +88,21 @@ export default function Dashboard() {
 
   async function fetchPack(next: PeriodState, key: number | null) {
     const { fechaIni, fechaFin } = rangeFromPeriod(next)
+    const extras = Promise.all([
+      user.role === 'admin' && key != null
+        ? fetchKpis(fechaIni, fechaFin, null).catch(() => null)
+        : Promise.resolve(null),
+      fetchPedidos(fechaIni, fechaFin, key).catch(() => null),
+    ]).then(([equipoRes, pedidosRes]) => {
+      setEquipo(equipoRes)
+      setPedidos(pedidosRes)
+    })
     const [kpi, mesesRes, carteraRes] = await Promise.all([
       fetchKpis(fechaIni, fechaFin, key),
       fetchKpiMeses(fechaIni, fechaFin, key).catch(() => null),
       fetchCarteraBundle(),
     ])
+    void extras
     return {
       kpi,
       meses: mesesRes,
@@ -96,6 +115,8 @@ export default function Dashboard() {
     const { fechaIni, fechaFin } = rangeFromPeriod(next)
     const cacheKey = kpiCacheKey(fechaIni, fechaFin, key)
     const cached = readDashPack(cacheKey)
+    setEquipo(null)
+    setPedidos(null)
     setError('')
     if (cached?.kpi) {
       applyPack(cached)
@@ -120,6 +141,8 @@ export default function Dashboard() {
       setMeses(null)
       setCartera(null)
       setCarteraSpark([])
+      setEquipo(null)
+      setPedidos(null)
       setReady(false)
       setError(err instanceof Error ? err.message : 'Error')
       if (String(err).includes('Sesión')) navigate('/login')
@@ -226,7 +249,7 @@ export default function Dashboard() {
                   commit({ ...period, asesorKey })
                 }}
               >
-                <option value="">Todos</option>
+                <option value="">Todos (empresa)</option>
                 {asesores.map((a) => (
                   <option key={a.asesor_key} value={a.asesor_key}>
                     {a.nombre}
@@ -241,8 +264,14 @@ export default function Dashboard() {
         </section>
 
         {ready && data && <SourceBanner data={data} />}
+        <ScopeBanner visible={user.role === 'admin' && selectedKey == null} />
         {error && <div className="error banner">{error}</div>}
-        {!ready && !error && <BikeLoader label={`El asesor va por ${periodLabel(period)}…`} />}
+        {!ready && !error && (
+          <>
+            <BikeLoader label={`El asesor va por ${periodLabel(period)}…`} />
+            <KpiSkeleton />
+          </>
+        )}
         {loading && ready && (
           <div className="bike-overlay">
             <BikeLoader label={`Actualizando ${periodLabel(period)}…`} />
@@ -251,6 +280,13 @@ export default function Dashboard() {
 
         {ready && data && data.vacio && !error && (
           <div className="empty banner">No hay meta ni ventas en {periodLabel(period)}.</div>
+        )}
+
+        {ready && data && isPastQuarterMidpoint(period) && data.pct_cumpl_presupuesto < 0.8 && (
+          <AlertBanner pct={data.pct_cumpl_presupuesto} period={periodLabel(period)} />
+        )}
+        {ready && data && equipo && selectedKey != null && (
+          <CompareStrip asesor={data} equipo={equipo} nombre={data.asesor_nombre || displayName} />
         )}
 
         {ready && data && !data.vacio && (
@@ -309,6 +345,17 @@ export default function Dashboard() {
                 />
               )}
             </section>
+
+            {pedidos && (
+              <button type="button" className="pedidos-strip neon-card" onClick={() => navigate('/detalle/pedidos')}>
+                <span>
+                  Pedidos {periodLabel(period)} · {pedidos.n.toLocaleString('es-CO')} · {formatMoney(pedidos.valor)}
+                </span>
+                <span className="muted">
+                  Por canal en fact_pedido · no es embudo · ver detalle →
+                </span>
+              </button>
+            )}
 
             <section className="charts-grid dash-top" data-tour="charts">
               <TrendLineChart

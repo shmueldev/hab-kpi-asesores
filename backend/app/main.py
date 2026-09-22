@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 import os
 from pathlib import Path
 
@@ -14,6 +14,7 @@ from app.infrastructure.api.auth_routes import auth_router  # noqa: E402
 from app.infrastructure.api.chat_routes import chat_router  # noqa: E402
 from app.infrastructure.api.dependencies import get_kpi_cache, use_demo_data  # noqa: E402
 from app.infrastructure.api.cartera_routes import router as cartera_router  # noqa: E402
+from app.infrastructure.api.pedido_routes import router as pedido_router  # noqa: E402
 from app.infrastructure.api.routes import router  # noqa: E402
 from app.infrastructure.database.db import probe_sql_available  # noqa: E402
 
@@ -43,6 +44,7 @@ app.include_router(auth_router)
 app.include_router(router)
 app.include_router(chat_router)
 app.include_router(cartera_router)
+app.include_router(pedido_router)
 
 
 @app.get("/health")

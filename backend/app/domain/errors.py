@@ -8,3 +8,7 @@ class CatalogUnavailable(Exception):
 
 class CarteraUnavailable(Exception):
     """No hay datos de cartera en SQL."""
+
+
+class PedidoUnavailable(Exception):
+    """No hay datos de pedidos en SQL."""

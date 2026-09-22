@@ -1,15 +1,31 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CarteraAging, CarteraCanceladas, CarteraSiesaSaldo, fetchCarteraAging, fetchCarteraCanceladas, fetchCarteraSiesa } from '../api/client'
+import {
+  CarteraAging,
+  CarteraAgingRow,
+  CarteraCanceladaRow,
+  CarteraCanceladas,
+  CarteraSiesaRow,
+  CarteraSiesaSaldo,
+  fetchCarteraAging,
+  fetchCarteraCanceladas,
+  fetchCarteraSiesa,
+} from '../api/client'
 import AppHeader from '../components/AppHeader'
 import BikeLoader from '../components/BikeLoader'
 import BreakdownTable from '../components/BreakdownTable'
 import KpiCard from '../components/KpiCard'
+import KpiSkeleton from '../components/KpiSkeleton'
 import { formatMoney, HorizontalBarsChart, NamedBarChart, StackedShareChart } from '../components/KpiCharts'
+import RowDrawer from '../components/RowDrawer'
+import ScopeBanner from '../components/ScopeBanner'
 import TableBanner from '../components/TableBanner'
 import TableCsvMenu from '../components/TableCsvMenu'
 import TablePager, { pageSlice } from '../components/TablePager'
-import { currentYear, yearOptions } from '../period'
+import TableToolbar from '../components/TableToolbar'
+import { carteraCacheKey, readCarteraPack, writeCarteraPack } from '../kpiCache'
+import { currentYear, selectedAsesorKey, yearOptions } from '../period'
+import { rowMatches, uniqueSorted } from '../tableQuery'
 
 const PAGE_SIZE = 12
 
@@ -26,36 +42,81 @@ export default function CarteraDetail() {
   const [detallePage, setDetallePage] = useState(1)
   const [siesaPage, setSiesaPage] = useState(1)
   const [cancelPage, setCancelPage] = useState(1)
-
-  useEffect(() => {
-    setError('')
-    setAging(null)
-    setDetallePage(1)
-    void fetchCarteraAging({ as_of: asOf })
-      .then(setAging)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Error'))
-  }, [asOf])
-
-  useEffect(() => {
-    setSiesaPage(1)
-    void fetchCarteraSiesa()
-      .then(setSiesa)
-      .catch(() => setSiesa(null))
+  const [qDetalle, setQDetalle] = useState('')
+  const [cubeta, setCubeta] = useState('')
+  const [qSiesa, setQSiesa] = useState('')
+  const [qCancel, setQCancel] = useState('')
+  const [openAging, setOpenAging] = useState<CarteraAgingRow | null>(null)
+  const [openSiesa, setOpenSiesa] = useState<CarteraSiesaRow | null>(null)
+  const [openCancel, setOpenCancel] = useState<CarteraCanceladaRow | null>(null)
+  const asesorKey = selectedAsesorKey()
+  const user = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('kpi_user') || '{}') as { role?: string }
+    } catch {
+      return {}
+    }
   }, [])
 
   useEffect(() => {
-    setCanceladas(null)
+    const cacheKey = carteraCacheKey(asOf, anio, trimestre, asesorKey)
+    const cached = readCarteraPack(cacheKey)
+    setError('')
+    setDetallePage(1)
+    setSiesaPage(1)
     setCancelPage(1)
-    void fetchCarteraCanceladas(anio, trimestre)
-      .then(setCanceladas)
-      .catch(() => setCanceladas(null))
-  }, [anio, trimestre])
+    if (cached?.aging) {
+      setAging(cached.aging)
+      setSiesa(cached.siesa)
+      setCanceladas(cached.canceladas)
+    } else {
+      setAging(null)
+    }
+    void (async () => {
+      try {
+        const [agingRes, siesaRes, cancelRes] = await Promise.all([
+          fetchCarteraAging({ as_of: asOf }),
+          fetchCarteraSiesa().catch(() => null),
+          fetchCarteraCanceladas(anio, trimestre).catch(() => null),
+        ])
+        setAging(agingRes)
+        setSiesa(siesaRes)
+        setCanceladas(cancelRes)
+        writeCarteraPack(cacheKey, { aging: agingRes, siesa: siesaRes, canceladas: cancelRes })
+      } catch (err) {
+        if (!cached?.aging) setError(err instanceof Error ? err.message : 'Error')
+      }
+    })()
+  }, [asOf, anio, trimestre, asesorKey])
 
   const who = aging?.resumen.vendedor_nombre
   const abierta = aging?.resumen.abierta ?? 0
   const subtitle = useMemo(() => `Foto ${asOf}${who ? ` · ${who}` : ''}`, [asOf, who])
   const ranking = useMemo(() => buildRanking(aging), [aging])
   const composition = useMemo(() => buildComposition(aging), [aging])
+  const cubetas = uniqueSorted(aging?.detalle.map((row) => row.cubeta) || [])
+  const detalleFiltrado = useMemo(() => {
+    if (!aging) return []
+    return aging.detalle.filter((row) => {
+      if (cubeta && row.cubeta !== cubeta) return false
+      return rowMatches(
+        [row.nit, row.razon_social, row.consec_docto_cruce, row.vendedor_codigo_nombre, row.cubeta],
+        qDetalle,
+      )
+    })
+  }, [aging, qDetalle, cubeta])
+  const siesaFiltrado = useMemo(() => {
+    if (!siesa) return []
+    return siesa.detalle.filter((row) =>
+      rowMatches([row.nit, row.razon_social, row.numero, row.codigo_vendedor], qSiesa),
+    )
+  }, [siesa, qSiesa])
+  const cancelFiltrado = useMemo(() => {
+    if (!canceladas) return []
+    return canceladas.detalle.filter((row) =>
+      rowMatches([row.nit, row.razon_social, row.consec_docto_cruce], qCancel),
+    )
+  }, [canceladas, qCancel])
 
   function patchParams(next: Record<string, string>) {
     const merged = new URLSearchParams(params)
@@ -104,8 +165,14 @@ export default function CarteraDetail() {
             Abierta y cubetas son foto a la fecha. Canceladas van por fecha_cancelacion. Siesa es saldo, sin trimestre.
           </p>
         </section>
+        <ScopeBanner visible={user.role === 'admin' && asesorKey == null} />
         {error && <div className="error banner">{error}</div>}
-        {!aging && !error && <BikeLoader label="Armando el detalle de cartera…" />}
+        {!aging && !error && (
+          <>
+            <BikeLoader label="Armando el detalle de cartera…" />
+            <KpiSkeleton />
+          </>
+        )}
 
         {aging && (
           <div className="board-enter">
@@ -266,7 +333,7 @@ export default function CarteraDetail() {
             <TableCsvMenu
               filename="detalle-cuotas-abiertas"
               headers={['NIT', 'Razón social', 'Sucursal', 'Vendedor', 'Docto', 'Cuota', 'Vence', 'Cubeta', 'Días a vcto', 'Valor']}
-              rows={aging.detalle.map((row) => [
+              rows={detalleFiltrado.map((row) => [
                 row.nit,
                 row.razon_social,
                 `${row.id_sucursal ?? ''} ${row.descripcion_sucursal ?? ''}`.trim(),
@@ -282,7 +349,23 @@ export default function CarteraDetail() {
             <section className="month-table neon-card has-banner">
               <TableBanner
                 title="Detalle de cuotas abiertas"
-                description="Cada fila es una cuota ABIERTA. La cubeta sale de as_of − fecha_vcto. Clic derecho exporta todas las filas a CSV, no solo la página."
+                description="Cada fila es una cuota ABIERTA. La cubeta sale de as_of − fecha_vcto. Busca NIT o cliente. Clic abre el documento. Clic derecho exporta el filtro actual."
+              />
+              <TableToolbar
+                query={qDetalle}
+                onQuery={(value) => {
+                  setQDetalle(value)
+                  setDetallePage(1)
+                }}
+                facetLabel="Cubeta"
+                facet={cubeta}
+                facets={cubetas}
+                onFacet={(value) => {
+                  setCubeta(value)
+                  setDetallePage(1)
+                }}
+                count={detalleFiltrado.length}
+                total={aging.detalle.length}
               />
               <div className="month-table-wrap">
                 <table>
@@ -290,39 +373,43 @@ export default function CarteraDetail() {
                     <tr>
                       <th>NIT</th>
                       <th>Razón social</th>
-                      <th>Sucursal</th>
-                      <th>Vendedor</th>
+                      <th className="hide-sm">Sucursal</th>
+                      <th className="hide-sm">Vendedor</th>
                       <th>Docto</th>
-                      <th>Cuota</th>
+                      <th className="hide-sm">Cuota</th>
                       <th>Vence</th>
                       <th>Cubeta</th>
-                      <th className="num">Días a vcto</th>
+                      <th className="num hide-sm">Días a vcto</th>
                       <th className="num">Valor</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {pageSlice(aging.detalle, detallePage, PAGE_SIZE).map((row, i) => (
-                      <tr key={`${row.nit}-${row.consec_docto_cruce}-${row.nro_cuota_cruce}-${i}`}>
+                    {pageSlice(detalleFiltrado, detallePage, PAGE_SIZE).map((row, i) => (
+                      <tr
+                        key={`${row.nit}-${row.consec_docto_cruce}-${row.nro_cuota_cruce}-${i}`}
+                        className="is-clickable"
+                        onClick={() => setOpenAging(row)}
+                      >
                         <td>{row.nit}</td>
                         <td>{row.razon_social}</td>
-                        <td>
+                        <td className="hide-sm">
                           {row.id_sucursal} {row.descripcion_sucursal}
                         </td>
-                        <td>{row.vendedor_codigo_nombre}</td>
+                        <td className="hide-sm">{row.vendedor_codigo_nombre}</td>
                         <td>
                           {row.tipo_docto_cruce} {row.consec_docto_cruce}
                         </td>
-                        <td>{row.nro_cuota_cruce}</td>
+                        <td className="hide-sm">{row.nro_cuota_cruce}</td>
                         <td>{row.fecha_vcto}</td>
                         <td>{row.cubeta || '—'}</td>
-                        <td className="num">{row.dias_a_vcto ?? '—'}</td>
+                        <td className="num hide-sm">{row.dias_a_vcto ?? '—'}</td>
                         <td className="num">{formatMoney(row.valor)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <TablePager page={detallePage} pageSize={PAGE_SIZE} total={aging.detalle.length} onPage={setDetallePage} />
+              <TablePager page={detallePage} pageSize={PAGE_SIZE} total={detalleFiltrado.length} onPage={setDetallePage} />
             </section>
             </TableCsvMenu>
           </div>
@@ -332,7 +419,7 @@ export default function CarteraDetail() {
           <TableCsvMenu
             filename="saldo-siesa"
             headers={['NIT', 'Razón', 'Número', 'Vendedor', 'Docto', 'Vence', 'Plazo', 'Días vencidos', 'Total']}
-            rows={siesa.detalle.map((row) => [
+            rows={siesaFiltrado.map((row) => [
               row.nit,
               row.razon_social,
               row.numero,
@@ -349,6 +436,15 @@ export default function CarteraDetail() {
               title="Saldo Siesa"
               description={`Saldo ${formatMoney(siesa.saldo_cartera)} · ${siesa.n_docs} documentos · fact_cartera.total. Otra fuente, no se cruza con UnoEE.`}
             />
+            <TableToolbar
+              query={qSiesa}
+              onQuery={(value) => {
+                setQSiesa(value)
+                setSiesaPage(1)
+              }}
+              count={siesaFiltrado.length}
+              total={siesa.detalle.length}
+            />
             <div className="month-table-wrap">
               <table>
                 <thead>
@@ -356,32 +452,32 @@ export default function CarteraDetail() {
                     <th>NIT</th>
                     <th>Razón</th>
                     <th>Número</th>
-                    <th>Vendedor</th>
-                    <th>Docto</th>
+                    <th className="hide-sm">Vendedor</th>
+                    <th className="hide-sm">Docto</th>
                     <th>Vence</th>
-                    <th className="num">Plazo</th>
-                    <th className="num">Días vencidos</th>
+                    <th className="num hide-sm">Plazo</th>
+                    <th className="num hide-sm">Días vencidos</th>
                     <th className="num">Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {pageSlice(siesa.detalle, siesaPage, PAGE_SIZE).map((row, i) => (
-                    <tr key={`${row.numero}-${i}`}>
+                  {pageSlice(siesaFiltrado, siesaPage, PAGE_SIZE).map((row, i) => (
+                    <tr key={`${row.numero}-${i}`} className="is-clickable" onClick={() => setOpenSiesa(row)}>
                       <td>{row.nit}</td>
                       <td>{row.razon_social}</td>
                       <td>{row.numero}</td>
-                      <td>{row.codigo_vendedor}</td>
-                      <td>{row.fecha_docto}</td>
+                      <td className="hide-sm">{row.codigo_vendedor}</td>
+                      <td className="hide-sm">{row.fecha_docto}</td>
                       <td>{row.fecha_vcto}</td>
-                      <td className="num">{row.plazo ?? '—'}</td>
-                      <td className="num">{row.dias_vencidos ?? '—'}</td>
+                      <td className="num hide-sm">{row.plazo ?? '—'}</td>
+                      <td className="num hide-sm">{row.dias_vencidos ?? '—'}</td>
                       <td className="num">{formatMoney(row.total)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <TablePager page={siesaPage} pageSize={PAGE_SIZE} total={siesa.detalle.length} onPage={setSiesaPage} />
+            <TablePager page={siesaPage} pageSize={PAGE_SIZE} total={siesaFiltrado.length} onPage={setSiesaPage} />
           </section>
           </TableCsvMenu>
         )}
@@ -390,7 +486,7 @@ export default function CarteraDetail() {
           <TableCsvMenu
             filename="canceladas"
             headers={['NIT', 'Razón', 'Sucursal', 'Docto', 'Cuota', 'Fecha docto', 'Fecha cancelación', 'Valor']}
-            rows={canceladas.detalle.map((row) => [
+            rows={cancelFiltrado.map((row) => [
               row.nit,
               row.razon_social,
               `${row.id_sucursal ?? ''} ${row.descripcion_sucursal ?? ''}`.trim(),
@@ -404,7 +500,16 @@ export default function CarteraDetail() {
           <section className="month-table neon-card has-banner">
             <TableBanner
               title="Canceladas"
-              description={`Año ${canceladas.anio}${canceladas.trimestre ? ` · Q${canceladas.trimestre}` : ''} · Q1 ${canceladas.q1 ?? '—'} · Q2 ${canceladas.q2 ?? '—'} · Q3 ${canceladas.q3 ?? '—'} · Q4 ${canceladas.q4 ?? '—'} · total ${canceladas.total}. Clic derecho exporta todas las filas a CSV.`}
+              description={`Año ${canceladas.anio}${canceladas.trimestre ? ` · Q${canceladas.trimestre}` : ''} · Q1 ${canceladas.q1 ?? '—'} · Q2 ${canceladas.q2 ?? '—'} · Q3 ${canceladas.q3 ?? '—'} · Q4 ${canceladas.q4 ?? '—'} · total ${canceladas.total}. Busca NIT o cliente. Clic abre el documento.`}
+            />
+            <TableToolbar
+              query={qCancel}
+              onQuery={(value) => {
+                setQCancel(value)
+                setCancelPage(1)
+              }}
+              count={cancelFiltrado.length}
+              total={canceladas.detalle.length}
             />
             <div className="month-table-wrap">
               <table>
@@ -412,27 +517,31 @@ export default function CarteraDetail() {
                   <tr>
                     <th>NIT</th>
                     <th>Razón</th>
-                    <th>Sucursal</th>
+                    <th className="hide-sm">Sucursal</th>
                     <th>Docto</th>
-                    <th>Cuota</th>
-                    <th>Fecha docto</th>
+                    <th className="hide-sm">Cuota</th>
+                    <th className="hide-sm">Fecha docto</th>
                     <th>Fecha cancelación</th>
                     <th className="num">Valor</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {pageSlice(canceladas.detalle, cancelPage, PAGE_SIZE).map((row, i) => (
-                    <tr key={`${row.consec_docto_cruce}-${row.nro_cuota_cruce}-${i}`}>
+                  {pageSlice(cancelFiltrado, cancelPage, PAGE_SIZE).map((row, i) => (
+                    <tr
+                      key={`${row.consec_docto_cruce}-${row.nro_cuota_cruce}-${i}`}
+                      className="is-clickable"
+                      onClick={() => setOpenCancel(row)}
+                    >
                       <td>{row.nit}</td>
                       <td>{row.razon_social}</td>
-                      <td>
+                      <td className="hide-sm">
                         {row.id_sucursal} {row.descripcion_sucursal}
                       </td>
                       <td>
                         {row.tipo_docto_cruce} {row.consec_docto_cruce}
                       </td>
-                      <td>{row.nro_cuota_cruce}</td>
-                      <td>{row.fecha_docto}</td>
+                      <td className="hide-sm">{row.nro_cuota_cruce}</td>
+                      <td className="hide-sm">{row.fecha_docto}</td>
                       <td>{row.fecha_cancelacion}</td>
                       <td className="num">{formatMoney(row.valor)}</td>
                     </tr>
@@ -440,9 +549,78 @@ export default function CarteraDetail() {
                 </tbody>
               </table>
             </div>
-            <TablePager page={cancelPage} pageSize={PAGE_SIZE} total={canceladas.detalle.length} onPage={setCancelPage} />
+            <TablePager page={cancelPage} pageSize={PAGE_SIZE} total={cancelFiltrado.length} onPage={setCancelPage} />
           </section>
           </TableCsvMenu>
+        )}
+        {openAging && (
+          <RowDrawer
+            title={openAging.razon_social || 'Cliente'}
+            subtitle={`${openAging.tipo_docto_cruce || ''} ${openAging.consec_docto_cruce ?? ''}`.trim()}
+            fields={[
+              { label: 'NIT', value: openAging.nit || '' },
+              { label: 'Razón social', value: openAging.razon_social || '' },
+              { label: 'Sucursal', value: `${openAging.id_sucursal ?? ''} ${openAging.descripcion_sucursal ?? ''}`.trim() },
+              { label: 'Vendedor', value: openAging.vendedor_codigo_nombre || '' },
+              { label: 'Documento', value: `${openAging.tipo_docto_cruce || ''} ${openAging.consec_docto_cruce ?? ''}`.trim() },
+              { label: 'Cuota', value: openAging.nro_cuota_cruce != null ? String(openAging.nro_cuota_cruce) : '' },
+              { label: 'Vence', value: openAging.fecha_vcto || '' },
+              { label: 'Cubeta', value: openAging.cubeta || '' },
+              { label: 'Días a vcto', value: openAging.dias_a_vcto != null ? String(openAging.dias_a_vcto) : '' },
+              { label: 'Valor', value: formatMoney(openAging.valor) },
+            ]}
+            onClose={() => setOpenAging(null)}
+            onFilter={() => {
+              if (openAging.nit) setQDetalle(openAging.nit)
+              setOpenAging(null)
+            }}
+            filterLabel="Buscar este NIT"
+          />
+        )}
+        {openSiesa && (
+          <RowDrawer
+            title={openSiesa.razon_social || 'Documento Siesa'}
+            subtitle={openSiesa.numero || ''}
+            fields={[
+              { label: 'NIT', value: openSiesa.nit || '' },
+              { label: 'Razón', value: openSiesa.razon_social || '' },
+              { label: 'Número', value: openSiesa.numero || '' },
+              { label: 'Vendedor', value: openSiesa.codigo_vendedor || '' },
+              { label: 'Fecha docto', value: openSiesa.fecha_docto || '' },
+              { label: 'Vence', value: openSiesa.fecha_vcto || '' },
+              { label: 'Plazo', value: openSiesa.plazo != null ? String(openSiesa.plazo) : '' },
+              { label: 'Días vencidos', value: openSiesa.dias_vencidos != null ? String(openSiesa.dias_vencidos) : '' },
+              { label: 'Total', value: formatMoney(openSiesa.total) },
+            ]}
+            onClose={() => setOpenSiesa(null)}
+            onFilter={() => {
+              if (openSiesa.nit) setQSiesa(openSiesa.nit)
+              setOpenSiesa(null)
+            }}
+            filterLabel="Buscar este NIT"
+          />
+        )}
+        {openCancel && (
+          <RowDrawer
+            title={openCancel.razon_social || 'Cancelada'}
+            subtitle={`${openCancel.tipo_docto_cruce || ''} ${openCancel.consec_docto_cruce ?? ''}`.trim()}
+            fields={[
+              { label: 'NIT', value: openCancel.nit || '' },
+              { label: 'Razón', value: openCancel.razon_social || '' },
+              { label: 'Sucursal', value: `${openCancel.id_sucursal ?? ''} ${openCancel.descripcion_sucursal ?? ''}`.trim() },
+              { label: 'Documento', value: `${openCancel.tipo_docto_cruce || ''} ${openCancel.consec_docto_cruce ?? ''}`.trim() },
+              { label: 'Cuota', value: openCancel.nro_cuota_cruce != null ? String(openCancel.nro_cuota_cruce) : '' },
+              { label: 'Fecha docto', value: openCancel.fecha_docto || '' },
+              { label: 'Fecha cancelación', value: openCancel.fecha_cancelacion || '' },
+              { label: 'Valor', value: formatMoney(openCancel.valor) },
+            ]}
+            onClose={() => setOpenCancel(null)}
+            onFilter={() => {
+              if (openCancel.nit) setQCancel(openCancel.nit)
+              setOpenCancel(null)
+            }}
+            filterLabel="Buscar este NIT"
+          />
         )}
       </main>
     </div>
@@ -454,7 +632,7 @@ function ratio(part: number, total: number) {
 }
 
 function shareOf(part: number, total: number) {
-  return `${(ratio(part, total) * 100).toFixed(1)}%`
+  return `${Math.round(ratio(part, total) * 100)}%`
 }
 
 function shortName(name: string | null | undefined) {

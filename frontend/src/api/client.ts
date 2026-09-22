@@ -304,6 +304,67 @@ export function fetchCarteraSiesa(q: CarteraQuery = {}) {
   return carteraGet<CarteraSiesaSaldo>('/cartera/siesa/saldo', q)
 }
 
+export type PedidoCanal = {
+  canal: string
+  es_autogestion: boolean
+  n: number
+  valor: number
+}
+
+export type PedidoCliente = {
+  nit: string | null
+  nombre: string
+  n: number
+  valor: number
+}
+
+export type PedidoRow = {
+  fecha_pedido: string | null
+  numero: number | null
+  nit: string | null
+  cliente: string | null
+  canal: string | null
+  valor: number
+  anulado: boolean
+  espera: boolean
+  fecha_despacho: string | null
+}
+
+export type PedidoResumen = {
+  fecha_ini: string
+  fecha_fin: string
+  n: number
+  valor: number
+  n_anulados: number
+  n_espera: number
+  n_despachados: number
+  por_canal: PedidoCanal[]
+  top_clientes: PedidoCliente[]
+  detalle: PedidoRow[]
+  detalle_tope: number
+  fuente: DataFuente
+  asesor_key: number | null
+  asesor_nombre: string | null
+}
+
+export async function fetchPedidos(
+  fechaIni: string,
+  fechaFin: string,
+  asesorKey?: number | null,
+  nit?: string,
+): Promise<PedidoResumen> {
+  const params = new URLSearchParams({ fecha_ini: fechaIni, fecha_fin: fechaFin })
+  if (asesorKey != null) params.set('asesor_key', String(asesorKey))
+  if (nit) params.set('nit', nit)
+  const res = await fetch(`${API_URL}/pedidos?${params}`, { headers: authHeaders() })
+  if (res.status === 401) {
+    clearSession()
+    throw new Error('Sesión expirada')
+  }
+  if (!res.ok) throw new Error(await readError(res, 'Error al cargar pedidos'))
+  return res.json()
+}
+
 export async function fetchAsesores(): Promise<Asesor[]> {
   const res = await fetch(`${API_URL}/asesores`, { headers: authHeaders() })
   if (res.status === 401) {

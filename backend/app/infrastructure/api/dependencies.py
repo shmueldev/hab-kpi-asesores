@@ -10,6 +10,7 @@ from app.domain.ports.kpi_cache_port import KpiCachePort
 from app.domain.ports.kpi_repository_port import KpiRepositoryPort
 from app.domain.ports.monthly_kpi_port import MonthlyKpiPort
 from app.domain.ports.cartera_port import CarteraPort
+from app.domain.ports.pedido_port import PedidoPort
 from app.domain.ports.user_repository_port import UserRepositoryPort
 from app.domain.ports.vendedor_map_port import VendedorMapPort
 from app.domain.vendedor import NO_VENDEDOR_ROWID, resolve_cartera_keys
@@ -24,8 +25,11 @@ from app.infrastructure.adapters.memory_kpi_repository import MemoryKpiRepositor
 from app.infrastructure.adapters.redis_kpi_cache import RedisKpiCache
 from app.infrastructure.adapters.sql_kpi_repository import SqlKpiRepository
 from app.infrastructure.adapters.memory_cartera_repository import MemoryCarteraRepository
+from app.infrastructure.adapters.memory_pedido_repository import MemoryPedidoRepository
 from app.infrastructure.adapters.sql_cartera_repository import SqlCarteraRepository
+from app.infrastructure.adapters.sql_pedido_repository import SqlPedidoRepository
 from app.use_cases.get_cartera import GetCartera
+from app.use_cases.get_pedidos import GetPedidos
 from app.use_cases.get_kpi_dashboard import GetKpiDashboard
 from app.use_cases.get_kpi_monthly import GetKpiMonthly
 from app.use_cases.list_asesores import ListAsesores
@@ -118,6 +122,19 @@ def get_cartera_use_case(
     repo: CarteraPort = Depends(get_cartera_repository),
 ) -> GetCartera:
     return GetCartera(repo)
+
+
+def get_pedido_repository() -> PedidoPort:
+    if use_demo_data():
+        return MemoryPedidoRepository()
+    return SqlPedidoRepository()
+
+
+def get_pedidos_use_case(
+    repo: PedidoPort = Depends(get_pedido_repository),
+    advisors: AdvisorRepositoryPort = Depends(get_advisor_repository),
+) -> GetPedidos:
+    return GetPedidos(repo, advisors)
 
 
 def get_kpi_use_case(

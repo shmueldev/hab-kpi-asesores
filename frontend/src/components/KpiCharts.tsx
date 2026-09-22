@@ -153,7 +153,7 @@ export function GaugeChart({
               <Cell fill={color || palette().part} />
               <Cell fill={palette().resto} />
             </Pie>
-            <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => `${Number(v).toFixed(1)}%`} />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => `${Math.round(Number(v))}%`} />
             <Legend />
           </PieChart>
         </ResponsiveContainer>
@@ -169,7 +169,7 @@ export function GaugeChart({
             strokeLinecap="round"
           />
         </svg>
-        <div className="chart-center-label gauge-label">{(percent * 100).toFixed(1)}%</div>
+        <div className="chart-center-label gauge-label">{Math.round(percent * 100)}%</div>
       </div>
     </ChartShell>
   )
@@ -214,7 +214,7 @@ export function MixDonutChart({
               <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatMoney(v)} />
             </PieChart>
           </ResponsiveContainer>
-          <div className="chart-center-label">{centerLabel ?? `${pct.toFixed(1)}%`}</div>
+          <div className="chart-center-label">{centerLabel ?? `${Math.round(pct)}%`}</div>
         </div>
         <ul className="donut-legend">
           {data.map((d) => {
@@ -223,7 +223,7 @@ export function MixDonutChart({
               <li key={d.name}>
                 <span className="donut-swatch" style={{ background: d.color }} />
                 <span>{d.name}</span>
-                <strong>{share.toFixed(1)}%</strong>
+                <strong>{Math.round(share)}%</strong>
               </li>
             )
           })}
@@ -327,7 +327,7 @@ export function HorizontalBarsChart({
             {rows.map((d, i) => (
               <Cell key={d.name} fill={d.color || fills[i % fills.length]} />
             ))}
-            <LabelList dataKey="share" position="right" formatter={(v: number) => `${(v * 100).toFixed(1)}%`} fill="currentColor" fontSize={11} />
+            <LabelList dataKey="share" position="right" formatter={(v: number) => `${Math.round(v * 100)}%`} fill="currentColor" fontSize={11} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -555,11 +555,11 @@ export function formatMoney(n: number): string {
 }
 
 export function formatPct(n: number): string {
-  return `${(n * 100).toFixed(1)}%`
+  return `${Math.round(n * 100)}%`
 }
 
 function compactMoney(n: number): string {
-  if (Math.abs(n) >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)} mil M`
+  if (Math.abs(n) >= 1_000_000_000) return `${Math.round(n / 1_000_000_000)} mil M`
   if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(0)} M`
   return new Intl.NumberFormat('es-CO', { notation: 'compact' }).format(n)
 }

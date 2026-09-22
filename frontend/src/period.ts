@@ -111,3 +111,14 @@ export function periodLabel(p: PeriodState) {
   }
   return `Q${p.quarter} ${p.year}`
 }
+
+export function isCurrentQuarter(p: PeriodState, now = new Date()) {
+  return p.mode === 'q' && p.year === now.getFullYear() && p.quarter === currentQuarter(now)
+}
+
+export function isPastQuarterMidpoint(p: PeriodState, now = new Date()) {
+  if (!isCurrentQuarter(p, now)) return false
+  const { start, end } = quarterBounds(p.year, p.quarter)
+  const mid = new Date(start.getTime() + (end.getTime() - start.getTime()) / 2)
+  return now >= mid
+}
