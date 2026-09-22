@@ -36,14 +36,6 @@ export default function AppHeader({ subtitle, backTo, onReplayTour }: Props) {
         <p className="muted">
           {user.nombre || user.username} · {user.role === 'admin' ? 'gerente' : 'asesor'} · {subtitle}
         </p>
-        <nav className="app-nav" aria-label="Secciones">
-          <button className="ghost" type="button" onClick={() => navigate('/')}>
-            Ventas
-          </button>
-          <button className="ghost" type="button" onClick={() => navigate('/cartera')}>
-            Cartera
-          </button>
-        </nav>
       </div>
       <div className="header-tools">
         {onReplayTour && (

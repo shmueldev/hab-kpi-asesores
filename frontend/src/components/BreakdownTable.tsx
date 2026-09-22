@@ -1,17 +1,30 @@
+import TableBanner from './TableBanner'
+import TableCsvMenu from './TableCsvMenu'
+
 type Row = { label: string; value: string; hint?: string }
 
 export default function BreakdownTable({
   formula,
   rows,
   tour,
+  title,
+  description,
 }: {
   formula: string
   rows: Row[]
   tour?: string
+  title?: string
+  description?: string
 }) {
   return (
-    <section className="metrics-table neon-card" data-tour={tour}>
-      <p className="formula-line">Cómo se calcula: {formula}</p>
+    <TableCsvMenu
+      filename={title || 'como-se-calcula'}
+      headers={['Concepto', 'Valor', 'Detalle']}
+      rows={rows.map((row) => [row.label, row.value, row.hint || ''])}
+    >
+    <section className={`metrics-table neon-card${title ? ' has-banner' : ''}`} data-tour={tour}>
+      {title ? <TableBanner title={title} description={description || `Cómo se calcula: ${formula}`} /> : null}
+      {!title ? <p className="formula-line">Cómo se calcula: {formula}</p> : null}
       <table>
         <thead>
           <tr>
@@ -32,5 +45,6 @@ export default function BreakdownTable({
         </tbody>
       </table>
     </section>
+    </TableCsvMenu>
   )
 }

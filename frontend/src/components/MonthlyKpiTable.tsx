@@ -1,12 +1,20 @@
 import type { KpiMonthRow, KpiMonthlyBreakdown } from '../api/client'
+import { formatMoney, formatPct } from './KpiCharts'
+import TableBanner from './TableBanner'
+import TableCsvMenu from './TableCsvMenu'
 
 export type KpiId = 'cumplimiento' | 'crecimiento' | 'autogestion'
-import { formatMoney, formatPct } from './KpiCharts'
 
 type Col = {
   key: keyof KpiMonthRow
   label: string
   kind: 'text' | 'money' | 'pct'
+}
+
+const TITLES: Record<KpiId, string> = {
+  cumplimiento: 'Avance mes a mes',
+  crecimiento: 'Crecimiento mes a mes',
+  autogestion: 'Autogestión mes a mes',
 }
 
 const COLS: Record<KpiId, Col[]> = {
@@ -65,12 +73,18 @@ export default function MonthlyKpiTable({
   const cols = COLS[kpi]
   const rows = data.total ? [...data.filas, data.total] : data.filas
   return (
-    <section className="month-table neon-card">
-      <p className="formula-line">Cómo llegó el dato · cada fila es un mes del periodo</p>
-      <p className="month-table-hint">
-        Los montos salen de fact_ventas / fact_presupuesto del mes. El total debe cuadrar con las tarjetas de
-        arriba.
-      </p>
+    <TableCsvMenu
+      filename={TITLES[kpi]}
+      headers={cols.map((col) => col.label)}
+      rows={rows.map((row) =>
+        cols.map((col) => (col.kind === 'text' ? cell(row, col) : Number(row[col.key]))),
+      )}
+    >
+    <section className="month-table neon-card has-banner">
+      <TableBanner
+        title={TITLES[kpi]}
+        description="Cada fila es un mes del periodo. Los montos salen de fact_ventas / fact_presupuesto. El total debe cuadrar con las tarjetas."
+      />
       <div className="month-table-wrap">
         <table>
           <thead>
@@ -96,5 +110,6 @@ export default function MonthlyKpiTable({
         </table>
       </div>
     </section>
+    </TableCsvMenu>
   )
 }

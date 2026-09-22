@@ -37,7 +37,7 @@ export default function Login() {
   }
 
   return (
-    <div className="login-page">
+    <div className="login-page route-enter">
       <form className="login-card neon-card" onSubmit={onSubmit}>
         <div className="login-top">
           <p className="app-kicker">Señal comercial</p>

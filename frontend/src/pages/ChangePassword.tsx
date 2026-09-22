@@ -46,7 +46,7 @@ export default function ChangePassword() {
   }
 
   return (
-    <div className="login-page">
+    <div className="login-page route-enter">
       <form className="login-card" onSubmit={onSubmit}>
         <h1>Cambiar contraseña</h1>
         <p className="muted">

@@ -118,8 +118,8 @@ export default function OnboardingTour({ ready, isAdmin, replayToken = 0 }: Prop
         text: 'Clic en una tarjeta o en “Ver detalle” abre una página solo de ese indicador.',
         points: [
           'Ahí se repite la fórmula, la tabla de montos y la gráfica grande.',
-          'No es el listado de cada factura: es el desglose del cálculo.',
-          'Volver te regresa al tablero con el mismo periodo.',
+          'Cartera abre aging, Siesa y canceladas en la misma página de detalle.',
+          'Volver te regresa al tablero. No hay sección aparte de Cartera.',
         ],
       },
       {

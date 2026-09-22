@@ -1,8 +1,7 @@
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { ChatProvider } from './chat/ChatContext'
 import ChatWidget from './components/ChatWidget'
 import ChangePassword from './pages/ChangePassword'
-import Cartera from './pages/Cartera'
 import CarteraDetail from './pages/CarteraDetail'
 import Dashboard from './pages/Dashboard'
 import KpiDetail from './pages/KpiDetail'
@@ -25,9 +24,18 @@ function PrivateLayout() {
   if (readUser().must_change_password) return <Navigate to="/cambiar-clave" replace />
   return (
     <ChatProvider>
-      <Outlet />
+      <AnimatedPage />
       <ChatWidget />
     </ChatProvider>
+  )
+}
+
+function AnimatedPage() {
+  const location = useLocation()
+  return (
+    <div className="route-enter" key={location.pathname}>
+      <Outlet />
+    </div>
   )
 }
 
@@ -39,9 +47,10 @@ export default function App() {
       <Route path="/cambiar-clave" element={<ChangePassword />} />
       <Route element={<PrivateLayout />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/detalle/cartera" element={<CarteraDetail />} />
         <Route path="/detalle/:kpi" element={<KpiDetail />} />
-        <Route path="/cartera" element={<Cartera />} />
-        <Route path="/cartera/:vista" element={<CarteraDetail />} />
+        <Route path="/cartera" element={<Navigate to="/detalle/cartera" replace />} />
+        <Route path="/cartera/:vista" element={<Navigate to="/detalle/cartera" replace />} />
       </Route>
       <Route path="/chat" element={<Navigate to="/" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />

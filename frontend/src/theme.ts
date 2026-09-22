@@ -23,6 +23,7 @@ export function readTheme(): ThemeMode {
 export function applyTheme(mode: ThemeMode) {
   document.documentElement.setAttribute('data-theme', mode)
   localStorage.setItem(THEME_KEY, mode)
+  window.dispatchEvent(new Event('kpi-theme'))
 }
 
 export function toggleTheme(): ThemeMode {
