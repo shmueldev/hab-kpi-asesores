@@ -68,6 +68,7 @@ El ingreso **no** está en SQL. Cada persona se declara en `backend/config/users
 |----------|------|------------|-------------|
 | admin | admin | null | Consolidado + filtro por asesor |
 | fcastro | asesor | 1 (Fernando Castro) | Solo su cartera |
+| resto de `dim_asesor` | asesor | su key | Solo su cartera (`uv run python scripts/seed_asesor_users.py`) |
 
 Detalle: [docs/usuarios.md](docs/usuarios.md).
 
