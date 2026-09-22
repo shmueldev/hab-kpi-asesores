@@ -9,12 +9,11 @@ import KpiSkeleton from '../components/KpiSkeleton'
 import ScopeBanner from '../components/ScopeBanner'
 import MonthlyKpiTable, { type KpiId } from '../components/MonthlyKpiTable'
 import {
-  ComboMonthChart,
+  AreaPairChart,
   formatMoney,
   formatPct,
-  MixDonutChart,
-  MonthBarChart,
-  TrendLineChart,
+  MoneyLanesChart,
+  SignedBarChart,
 } from '../components/KpiCharts'
 import { kpiCacheKey, readKpiCache, readLastSnapshot, writeKpiCache } from '../kpiCache'
 import { loadPeriod, periodLabel, rangeFromPeriod, selectedAsesorKey } from '../period'
@@ -155,38 +154,33 @@ export default function KpiDetail() {
                 {!meses && !mesesError && <BikeLoader compact label="Armando la tabla mes a mes…" />}
                 {meses && <MonthlyKpiTable kpi="cumplimiento" data={meses} />}
                 <section className="charts-grid two">
-                  <TrendLineChart
-                    title="Avance vs meta"
+                  <AreaPairChart
+                    title="Avance mes a mes"
+                    leftName="Venta int."
+                    rightName="Meta"
                     points={
-                      (meses?.filas || []).filter((row) => !row.es_total).length
-                        ? (meses?.filas || [])
-                            .filter((row) => !row.es_total)
-                            .map((row) => ({ name: row.mes_texto.slice(0, 3), venta: row.venta_int, meta: row.total_meta }))
+                      monthRows.length
+                        ? monthRows.map((row) => ({
+                            name: row.mes_texto.slice(0, 3),
+                            venta: row.venta_int,
+                            meta: row.total_meta,
+                          }))
                         : [{ name: periodLabel(period), venta: data.venta_int, meta: data.total_meta }]
                     }
-                    height={280}
                   />
-                  <MixDonutChart
-                    title="Venta vs meta"
-                    part={data.venta_int}
-                    total={Math.max(data.total_meta, data.venta_int)}
-                    partLabel="Venta int."
-                    restLabel="Falta a meta"
-                    centerLabel={formatPct(data.pct_cumpl_presupuesto)}
-                    height={280}
+                  <MoneyLanesChart
+                    title="Meta, venta y brecha"
+                    items={[
+                      { name: 'Meta', value: data.total_meta, tone: 'neutral' },
+                      { name: 'Venta int.', value: data.venta_int, tone: data.pct_cumpl_presupuesto >= 1 ? 'ok' : 'bad' },
+                      {
+                        name: 'Brecha',
+                        value: data.total_meta - data.venta_int,
+                        tone: data.total_meta - data.venta_int <= 0 ? 'ok' : 'bad',
+                      },
+                    ]}
                   />
                 </section>
-                {(meses?.filas || []).some((row) => !row.es_total) && (
-                  <section className="charts-grid one">
-                    <ComboMonthChart
-                      title="Evolución de ventas"
-                      points={(meses?.filas || [])
-                        .filter((row) => !row.es_total)
-                        .map((row) => ({ name: row.mes_texto.slice(0, 3), venta: row.venta_int, meta: row.total_meta }))}
-                      height={280}
-                    />
-                  </section>
-                )}
               </>
             )}
             {id === 'crecimiento' && (
@@ -248,21 +242,26 @@ export default function KpiDetail() {
                 {mesesError && <div className="error banner">{mesesError}</div>}
                 {!meses && !mesesError && <BikeLoader compact label="Armando la tabla mes a mes…" />}
                 {meses && <MonthlyKpiTable kpi="crecimiento" data={meses} />}
-                <section className="charts-grid one">
-                  <MonthBarChart
-                    title="Ventas vs año anterior"
+                <section className="charts-grid two">
+                  <SignedBarChart
+                    title="Crecimiento por mes"
                     points={
-                      (meses?.filas || []).filter((row) => !row.es_total).length
-                        ? (meses?.filas || [])
-                            .filter((row) => !row.es_total)
-                            .map((row) => ({
-                              name: row.mes_texto.slice(0, 3),
-                              actual: row.venta_actual,
-                              anterior: row.ventas_aa,
-                            }))
-                        : [{ name: periodLabel(period), actual: data.total_ventas, anterior: data.ventas_aa }]
+                      monthRows.length
+                        ? monthRows.map((row) => ({ name: row.mes_texto.slice(0, 3), value: row.pct_crecimiento }))
+                        : [{ name: periodLabel(period), value: data.pct_crecimiento_dinero }]
                     }
-                    height={320}
+                  />
+                  <MoneyLanesChart
+                    title="Actual, año anterior y diferencia"
+                    items={[
+                      { name: 'Ventas actuales', value: data.total_ventas, tone: data.pct_crecimiento_dinero >= 0 ? 'ok' : 'bad' },
+                      { name: 'Año anterior', value: data.ventas_aa, tone: 'neutral' },
+                      {
+                        name: 'Diferencia',
+                        value: data.total_ventas - data.ventas_aa,
+                        tone: data.total_ventas - data.ventas_aa >= 0 ? 'ok' : 'bad',
+                      },
+                    ]}
                   />
                 </section>
               </>
@@ -329,13 +328,36 @@ export default function KpiDetail() {
                 {mesesError && <div className="error banner">{mesesError}</div>}
                 {!meses && !mesesError && <BikeLoader compact label="Armando la tabla mes a mes…" />}
                 {meses && <MonthlyKpiTable kpi="autogestion" data={meses} />}
-                <section className="charts-grid one">
-                  <MixDonutChart
-                    title="Mix autogestión vs resto"
-                    part={data.venta_autogestion}
-                    total={data.venta_int || data.total_ventas}
-                    partLabel="Autogestión"
-                    height={320}
+                <section className="charts-grid two">
+                  <AreaPairChart
+                    title="Canal mes a mes"
+                    leftKey="auto"
+                    rightKey="resto"
+                    leftName="Autogestión"
+                    rightName="Resto"
+                    points={
+                      monthRows.length
+                        ? monthRows.map((row) => ({
+                            name: row.mes_texto.slice(0, 3),
+                            auto: row.venta_autogestion,
+                            resto: Math.max(0, row.venta_int - row.venta_autogestion),
+                          }))
+                        : [
+                            {
+                              name: periodLabel(period),
+                              auto: data.venta_autogestion,
+                              resto: Math.max(0, data.venta_int - data.venta_autogestion),
+                            },
+                          ]
+                    }
+                  />
+                  <MoneyLanesChart
+                    title="Autogestión, resto y base"
+                    items={[
+                      { name: 'Autogestión', value: data.venta_autogestion, tone: 'ok' },
+                      { name: 'Resto', value: Math.max(0, data.venta_int - data.venta_autogestion), tone: 'neutral' },
+                      { name: 'Venta int.', value: data.venta_int, tone: 'neutral' },
+                    ]}
                   />
                 </section>
               </>

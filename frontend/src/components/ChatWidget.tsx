@@ -1,17 +1,19 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { askChat } from '../api/client'
+import { askChat, type ChatVisual } from '../api/client'
 import { useChatDock } from '../chat/ChatContext'
-import { localKpiReply } from '../chat/localHelper'
 import { formatPct } from './KpiCharts'
 import ChatMascot from './ChatMascot'
-import { readLastSnapshot } from '../kpiCache'
-import { periodLabel } from '../period'
+import ChatVisuals, { ChatRichText } from './ChatVisuals'
+import { kpiCacheKey, readDashPack, readLastSnapshot } from '../kpiCache'
+import { periodLabel, rangeFromPeriod, selectedAsesorKey } from '../period'
 
 type Msg = {
   id: number
   role: 'user' | 'assistant'
   text: string
-  source?: 'local' | 'openai'
+  source?: 'local' | 'rescue'
+  visuals?: ChatVisual[]
+  suggestions?: string[]
 }
 
 let nextId = 1
@@ -21,8 +23,21 @@ const HELLO_EVERY_MS = 12 * 60 * 1000
 export default function ChatWidget() {
   const { open, toggle, close } = useChatDock()
   const snap = useMemo(() => readLastSnapshot(), [open])
+  const pack = useMemo(() => {
+    if (!snap?.period) return null
+    const { fechaIni, fechaFin } = rangeFromPeriod(snap.period)
+    return readDashPack(kpiCacheKey(fechaIni, fechaFin, selectedAsesorKey()))
+  }, [open, snap?.period])
   const period = snap?.period ? periodLabel(snap.period) : 'periodo no cargado'
-  const data = snap?.data ?? null
+  const data = pack?.kpi ?? snap?.data ?? null
+  const meses = pack?.meses?.filas ?? null
+  const viewer = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('kpi_user') || '{}') as { role?: string; nombre?: string }
+    } catch {
+      return {}
+    }
+  }, [open])
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -73,24 +88,43 @@ export default function ChatWidget() {
     }
   }, [open, data?.asesor_nombre, period])
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    const text = input.trim()
-    if (!text || busy || !canWrite) return
+  async function ask(text: string) {
+    const clean = text.trim()
+    if (!clean || busy || !canWrite) return
     setInput('')
-    setMessages((prev) => [...prev, { id: nextId++, role: 'user', text }])
+    setMessages((prev) => [...prev, { id: nextId++, role: 'user', text: clean }])
     setBusy(true)
     try {
-      const res = await askChat(text, data, period)
-      setMessages((prev) => [...prev, { id: nextId++, role: 'assistant', text: res.reply, source: res.source }])
-    } catch {
+      const res = await askChat(clean, data, period, meses)
       setMessages((prev) => [
         ...prev,
-        { id: nextId++, role: 'assistant', text: localKpiReply(text, data, period), source: 'local' },
+        {
+          id: nextId++,
+          role: 'assistant',
+          text: res.reply,
+          source: res.source,
+          visuals: res.visuals,
+          suggestions: res.suggestions,
+        },
+      ])
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nextId++,
+          role: 'assistant',
+          text: err instanceof Error ? err.message : 'No se pudo consultar RescueAI.',
+          source: 'local',
+        },
       ])
     } finally {
       setBusy(false)
     }
+  }
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    void ask(input)
   }
 
   return (
@@ -112,7 +146,10 @@ export default function ChatWidget() {
           <div>
             <h2>Consulta de KPIs</h2>
             <p className="muted">
-              {data ? `${data.asesor_nombre || 'Consolidado'} · ${period}` : 'Sin snapshot cargado'}
+              {data
+                ? `${data.asesor_nombre || (viewer.role === 'admin' ? 'Consolidado' : viewer.nombre || 'Tu tablero')} · ${period}`
+                : 'Sin snapshot cargado'}
+              {viewer.role === 'asesor' ? ' · solo tu cartera' : ''}
             </p>
           </div>
           <button type="button" className="ghost chat-close" onClick={close} aria-label="Cerrar chat">
@@ -143,9 +180,19 @@ export default function ChatWidget() {
                 <div className="chat-bubble-row">
                   <ChatMascot size={36} className="chat-bubble-face" />
                   <div>
-                    <p>{msg.text}</p>
+                    <ChatRichText text={msg.text} />
+                    <ChatVisuals visuals={msg.visuals} />
+                    {!!msg.suggestions?.length && (
+                      <div className="chat-suggest">
+                        {msg.suggestions.map((hint) => (
+                          <button key={hint} type="button" disabled={busy || !canWrite} onClick={() => void ask(hint)}>
+                            {hint}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <span className="chat-source">
-                      {msg.source === 'openai' ? 'Modelo con el snapshot actual' : 'Ayuda local'}
+                      {msg.source === 'rescue' ? 'RescueAI · rescue-main' : 'Ayuda local'}
                     </span>
                   </div>
                 </div>

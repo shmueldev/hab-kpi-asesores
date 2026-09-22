@@ -34,7 +34,7 @@ Frontend (`frontend/.env`):
 VITE_API_URL=http://127.0.0.1:8000
 ```
 
-Cómo saber la fuente: el tablero muestra un banner **en vivo / Redis / demo**. `GET /health` también reporta `sql`, `redis` y `demo`.
+Cómo saber la fuente: el tablero muestra un banner **en vivo / Redis / demo**. `GET /health` también reporta `sql`, `redis`, `demo` y si el chat tiene RescueAI.
 
 ## Arrancar
 
@@ -78,6 +78,7 @@ Detalle: [docs/usuarios.md](docs/usuarios.md).
 - `GET /asesores` — catálogo `dbo.dim_asesor` (el asesor solo se ve a sí mismo)
 - `GET /kpis?fecha_ini=&fecha_fin=&asesor_key=` — Bearer JWT. `asesor_key` solo lo honra el admin.
 - `GET /pedidos?fecha_ini=&fecha_fin=&asesor_key=` — volumen y canal de `fact_pedido` (no es embudo).
+- `POST /chat` — RescueAI `rescue-main` con el snapshot; si no hay llave, ayuda local.
 
 Respuesta KPI incluye `fuente` (`sql` \| `redis` \| `demo`), `vacio`, `asesor_nombre` y, si vino de Redis, el periodo/fecha del snapshot.
 

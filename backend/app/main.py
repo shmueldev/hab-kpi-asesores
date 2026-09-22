@@ -7,12 +7,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 _root = Path(__file__).resolve().parents[2]
-load_dotenv(_root / ".env")
-load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+load_dotenv(_root / ".env", override=True)
+load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=True)
 
 from app.infrastructure.api.auth_routes import auth_router  # noqa: E402
 from app.infrastructure.api.chat_routes import chat_router  # noqa: E402
 from app.infrastructure.api.dependencies import get_kpi_cache, use_demo_data  # noqa: E402
+from app.use_cases.chat import rescue_configured, rescue_model  # noqa: E402
 from app.infrastructure.api.cartera_routes import router as cartera_router  # noqa: E402
 from app.infrastructure.api.pedido_routes import router as pedido_router  # noqa: E402
 from app.infrastructure.api.routes import router  # noqa: E402
@@ -58,6 +59,8 @@ def health() -> dict:
         "sql": sql_ok,
         "redis": redis_ok,
         "database": os.getenv("DB_NAME", "bdhabEngineer"),
+        "rescueai": rescue_configured(),
+        "rescueai_model": rescue_model() if rescue_configured() else None,
     }
 
 

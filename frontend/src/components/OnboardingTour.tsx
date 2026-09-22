@@ -128,7 +128,7 @@ export default function OnboardingTour({ ready, isAdmin, replayToken = 0 }: Prop
         text: 'No es otra página. La pestaña Chat se queda fija. Un toque abre el panel; otro toque lo cierra.',
         points: [
           'Pregunta por el periodo que ya cargaste: “¿cómo va el cumplimiento?”.',
-          'Si no hay modelo contratado, responde con el snapshot (ayuda local). No inventa cifras.',
+          'Si hay llave RescueAI responde con rescue-main y el snapshot. Si no, ayuda local. No inventa cifras.',
           'No hay botón de chat en el encabezado: usa la pestaña de la derecha.',
         ],
         chat: 'open',

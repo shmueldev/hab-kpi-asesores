@@ -12,5 +12,4 @@ def post_chat(
     body: ChatRequest,
     user: UserInfo = Depends(get_current_user),
 ) -> ChatResponse:
-    _ = user
-    return answer_chat(body)
+    return answer_chat(body, user)

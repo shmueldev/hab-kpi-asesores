@@ -107,17 +107,35 @@ export async function recoverPassword(
   if (!res.ok) throw new Error(await readError(res, 'No se pudo recuperar la contraseña'))
 }
 
-export type ChatSource = 'local' | 'openai'
+export type ChatSource = 'local' | 'rescue'
+
+export type ChatVisualItem = {
+  name: string
+  value: number
+  tone?: 'ok' | 'bad' | 'neutral'
+  kind?: 'money' | 'pct'
+}
+
+export type ChatVisual = {
+  type: 'lanes' | 'signed' | 'pills' | 'bars'
+  title: string
+  items?: ChatVisualItem[]
+  points?: { name: string; value: number }[]
+  highlight?: 'high' | 'low' | null
+}
 
 export type ChatReply = {
   reply: string
   source: ChatSource
+  visuals?: ChatVisual[]
+  suggestions?: string[]
 }
 
 export async function askChat(
   message: string,
   snapshot: KpiDashboard | null,
   periodLabel?: string,
+  meses?: { mes_texto: string; venta_int: number; total_meta: number; pct_crecimiento: number; venta_autogestion: number; es_total?: boolean }[] | null,
 ): Promise<ChatReply> {
   const res = await fetch(`${API_URL}/chat`, {
     method: 'POST',
@@ -126,6 +144,7 @@ export async function askChat(
       message,
       period_label: periodLabel ?? null,
       snapshot,
+      meses: meses ?? null,
     }),
   })
   if (res.status === 401) {

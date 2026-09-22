@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import {
   Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -12,6 +13,7 @@ import {
   LineChart,
   Pie,
   PieChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -48,6 +50,8 @@ function paletteFor(mode: ReturnType<typeof readTheme>) {
       stack1: '#1e3a8a',
       stack2: '#2563eb',
       stack3: '#93c5fd',
+      ok: '#22c55e',
+      bad: '#f43f5e',
     }
   }
   return {
@@ -63,6 +67,8 @@ function paletteFor(mode: ReturnType<typeof readTheme>) {
     stack1: '#1e3a8a',
     stack2: '#2563eb',
     stack3: '#93c5fd',
+    ok: '#168980',
+    bad: '#bb4a4a',
   }
 }
 
@@ -542,6 +548,143 @@ export function SliceDonutChart({
         </ResponsiveContainer>
         <div className="chart-center-label">{total ? formatMoney(total) : '—'}</div>
       </div>
+    </ChartShell>
+  )
+}
+
+export function AreaPairChart({
+  title,
+  points,
+  leftKey = 'venta',
+  rightKey = 'meta',
+  leftName = 'Venta',
+  rightName = 'Meta',
+  height = 280,
+}: {
+  title: string
+  points: Record<string, string | number>[]
+  leftKey?: string
+  rightKey?: string
+  leftName?: string
+  rightName?: string
+  height?: number
+}) {
+  const colors = palette()
+  return (
+    <ChartShell title={title}>
+      <ResponsiveContainer width="100%" height={height}>
+        <AreaChart data={points} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <CartesianGrid stroke={colors.grid} vertical={false} strokeDasharray="3 6" />
+          <XAxis dataKey="name" tick={axis} axisLine={false} tickLine={false} />
+          <YAxis tick={axis} tickFormatter={(v) => compactMoney(v)} width={52} axisLine={false} tickLine={false} />
+          <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatMoney(v)} />
+          <Legend />
+          <Area type="monotone" dataKey={rightKey} name={rightName} stroke={colors.meta} fill={colors.track} strokeWidth={2} />
+          <Area type="monotone" dataKey={leftKey} name={leftName} stroke={colors.venta} fill={colors.fill} strokeWidth={2.2} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </ChartShell>
+  )
+}
+
+export function MoneyLanesChart({
+  title,
+  items,
+}: {
+  title: string
+  items: { name: string; value: number; tone?: 'ok' | 'bad' | 'neutral' }[]
+}) {
+  const max = Math.max(...items.map((item) => Math.abs(item.value)), 1)
+  return (
+    <ChartShell title={title}>
+      <ul className="money-lanes">
+        {items.map((item) => (
+          <li key={item.name}>
+            <div className="money-lane-head">
+              <span>{item.name}</span>
+              <strong>{formatMoney(item.value)}</strong>
+            </div>
+            <div className="money-lane-track">
+              <span
+                className={`money-lane-fill tone-${item.tone || 'neutral'}`}
+                style={{ width: `${Math.max(4, (Math.abs(item.value) / max) * 100)}%` }}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </ChartShell>
+  )
+}
+
+export function SignedBarChart({
+  title,
+  points,
+  height = 280,
+}: {
+  title: string
+  points: { name: string; value: number }[]
+  height?: number
+}) {
+  const colors = palette()
+  const rows = points.map((row) => ({ ...row, pct: Math.round(row.value * 100) }))
+  return (
+    <ChartShell title={title}>
+      <ResponsiveContainer width="100%" height={height}>
+        <BarChart data={rows} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <CartesianGrid stroke={colors.grid} vertical={false} strokeDasharray="3 6" />
+          <XAxis dataKey="name" tick={axis} axisLine={false} tickLine={false} />
+          <YAxis tick={axis} tickFormatter={(v) => `${v}%`} width={40} axisLine={false} tickLine={false} />
+          <ReferenceLine y={0} stroke={colors.meta} />
+          <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => `${v}%`} />
+          <Bar dataKey="pct" name="Crecimiento" radius={[6, 6, 0, 0]} maxBarSize={28}>
+            {rows.map((row) => (
+              <Cell key={row.name} fill={row.pct >= 0 ? colors.ok : colors.bad} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartShell>
+  )
+}
+
+export function ValueBarChart({
+  title,
+  points,
+  height = 200,
+  highlight = 'high',
+}: {
+  title: string
+  points: { name: string; value: number }[]
+  height?: number
+  highlight?: 'high' | 'low' | null
+}) {
+  const colors = palette()
+  const ranked = [...points].sort((a, b) => a.value - b.value)
+  const highs = new Set(ranked.slice(-1).map((row) => row.name))
+  const lows = new Set(ranked.slice(0, Math.min(3, ranked.length)).map((row) => row.name))
+  return (
+    <ChartShell title={title}>
+      <ResponsiveContainer width="100%" height={height}>
+        <BarChart data={points} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <CartesianGrid stroke={colors.grid} vertical={false} strokeDasharray="3 6" />
+          <XAxis dataKey="name" tick={axis} axisLine={false} tickLine={false} />
+          <YAxis tick={axis} tickFormatter={(v) => compactMoney(v)} width={52} axisLine={false} tickLine={false} />
+          <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatMoney(v)} />
+          <Bar dataKey="value" name="Venta" radius={[6, 6, 0, 0]} maxBarSize={26}>
+            {points.map((row) => {
+              const mark =
+                highlight === 'low' ? lows.has(row.name) : highlight === 'high' ? highs.has(row.name) : false
+              return (
+                <Cell
+                  key={row.name}
+                  fill={mark ? (highlight === 'low' ? colors.bad : colors.ok) : colors.venta}
+                />
+              )
+            })}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </ChartShell>
   )
 }
