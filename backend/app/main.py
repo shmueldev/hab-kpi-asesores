@@ -16,6 +16,7 @@ from app.infrastructure.api.dependencies import get_kpi_cache, use_demo_data  # 
 from app.use_cases.chat import rescue_configured, rescue_model  # noqa: E402
 from app.infrastructure.api.cartera_routes import router as cartera_router  # noqa: E402
 from app.infrastructure.api.pedido_routes import router as pedido_router  # noqa: E402
+from app.infrastructure.api.uso_routes import router as uso_router  # noqa: E402
 from app.infrastructure.api.routes import router  # noqa: E402
 from app.infrastructure.database.db import probe_sql_available  # noqa: E402
 
@@ -46,6 +47,7 @@ app.include_router(router)
 app.include_router(chat_router)
 app.include_router(cartera_router)
 app.include_router(pedido_router)
+app.include_router(uso_router)
 
 
 @app.get("/health")

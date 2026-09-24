@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { askChat, type ChatVisual } from '../api/client'
 import { useChatDock } from '../chat/ChatContext'
+import { canListen, canSpeak, speakText, startListening, stopSpeaking } from '../chat/speech'
 import { formatPct } from './KpiCharts'
 import ChatMascot from './ChatMascot'
 import ChatVisuals, { ChatRichText } from './ChatVisuals'
@@ -19,6 +20,7 @@ type Msg = {
 let nextId = 1
 const HELLO_AT = 'kpi_chat_hello_at'
 const HELLO_EVERY_MS = 12 * 60 * 1000
+const VOICE_KEY = 'kpi_chat_voice'
 
 export default function ChatWidget() {
   const { open, toggle, close } = useChatDock()
@@ -40,6 +42,7 @@ export default function ChatWidget() {
   }, [open])
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const stopMicRef = useRef<(() => void) | null>(null)
 
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
@@ -47,12 +50,37 @@ export default function ChatWidget() {
   const [hello, setHello] = useState('')
   const [canWrite, setCanWrite] = useState(true)
   const [greeting, setGreeting] = useState(false)
+  const [listening, setListening] = useState(false)
+  const [voiceOn, setVoiceOn] = useState(() => localStorage.getItem(VOICE_KEY) !== '0')
+  const [speechNote, setSpeechNote] = useState('')
   const started = messages.some((msg) => msg.role === 'user')
+  const micOk = canListen()
+  const voiceOk = canSpeak()
 
   useEffect(() => {
     const node = listRef.current
     if (node) node.scrollTop = node.scrollHeight
   }, [messages, open, hello])
+
+  useEffect(() => {
+    if (!open) {
+      stopMicRef.current?.()
+      stopMicRef.current = null
+      setListening(false)
+      stopSpeaking()
+    }
+  }, [open])
+
+  useEffect(() => {
+    const last = messages[messages.length - 1]
+    if (!open || !voiceOn || !voiceOk || !last || last.role !== 'assistant') return
+    speakText(last.text)
+  }, [messages, open, voiceOn, voiceOk])
+
+  useEffect(() => {
+    if (!open || !voiceOn || !voiceOk || !hello || started) return
+    speakText(hello)
+  }, [hello, open, voiceOn, voiceOk, started])
 
   useEffect(() => {
     if (!open) {
@@ -88,9 +116,45 @@ export default function ChatWidget() {
     }
   }, [open, data?.asesor_nombre, period])
 
+  function toggleVoice() {
+    const next = !voiceOn
+    setVoiceOn(next)
+    localStorage.setItem(VOICE_KEY, next ? '1' : '0')
+    if (!next) stopSpeaking()
+  }
+
+  function toggleMic() {
+    if (!micOk || !canWrite || busy) return
+    if (listening) {
+      stopMicRef.current?.()
+      stopMicRef.current = null
+      setListening(false)
+      return
+    }
+    stopSpeaking()
+    setSpeechNote('')
+    setListening(true)
+    stopMicRef.current = startListening({
+      onPartial: (text) => setInput(text),
+      onFinal: (text) => {
+        setInput(text)
+        setListening(false)
+        stopMicRef.current = null
+        void ask(text)
+      },
+      onEnd: () => {
+        setListening(false)
+        stopMicRef.current = null
+      },
+      onError: (message) => setSpeechNote(message),
+    })
+  }
+
   async function ask(text: string) {
     const clean = text.trim()
     if (!clean || busy || !canWrite) return
+    stopSpeaking()
+    setSpeechNote('')
     setInput('')
     setMessages((prev) => [...prev, { id: nextId++, role: 'user', text: clean }])
     setBusy(true)
@@ -205,19 +269,51 @@ export default function ChatWidget() {
         <form className="chat-composer" onSubmit={onSubmit}>
           <label htmlFor="chat-input">Pregunta</label>
           <div className="chat-composer-row">
+            {micOk && (
+              <button
+                type="button"
+                className={`chat-mic${listening ? ' is-on' : ''}`}
+                onClick={toggleMic}
+                disabled={!canWrite || busy}
+                aria-pressed={listening}
+                title={listening ? 'Dejar de escuchar' : 'Dictar pregunta'}
+              >
+                {listening ? 'Parar' : 'Mic'}
+              </button>
+            )}
             <input
               id="chat-input"
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={canWrite ? '¿Cómo va el cumplimiento?' : 'Espera el saludo…'}
+              placeholder={
+                listening ? 'Escuchando…' : canWrite ? '¿Cómo va el cumplimiento?' : 'Espera el saludo…'
+              }
               autoComplete="off"
               disabled={!canWrite || busy}
             />
+            {voiceOk && (
+              <button
+                type="button"
+                className={`chat-voice${voiceOn ? ' is-on' : ''}`}
+                onClick={toggleVoice}
+                aria-pressed={voiceOn}
+                title={voiceOn ? 'Silenciar al bot' : 'Volver a escuchar al bot'}
+              >
+                {voiceOn ? 'Silenciar' : 'Hablar'}
+              </button>
+            )}
             <button type="submit" disabled={!canWrite || busy || !input.trim()}>
               Enviar
             </button>
           </div>
+          {speechNote && <p className="chat-speech-note">{speechNote}</p>}
+          {voiceOk && (
+            <p className="chat-speech-hint">
+              El bot responde en texto y en voz. {voiceOn ? 'Silenciar' : 'Hablar'} apaga o enciende el audio.
+              {micOk ? ' El micrófono es opcional.' : ''}
+            </p>
+          )}
         </form>
       </aside>
     </>

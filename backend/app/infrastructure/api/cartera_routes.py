@@ -30,22 +30,26 @@ def _common(
     }
 
 
-def _stamp_abierta(data: CarteraAbierta, params: dict) -> CarteraAbierta:
+def _stamp_abierta(data: CarteraAbierta, params: dict, anio: int | None = None) -> CarteraAbierta:
     rowid = params.get("vendedor_rowid")
     data.asesor_key = params.get("asesor_key")
     data.vendedor_rowid = None if rowid == NO_VENDEDOR_ROWID else rowid
     data.vendedor_nombre = params.get("vendedor_nombre")
+    data.anio = anio
     return data
 
 
 @router.get("/unoee/abierta", response_model=CarteraAbierta)
 def get_abierta(
     params: dict = Depends(_common),
+    anio: int | None = Query(None, description="Año civil de fecha_docto. Sin año = todas las abiertas."),
     _: object = Depends(get_current_user),
     use_case: GetCartera = Depends(get_cartera_use_case),
 ) -> CarteraAbierta:
     try:
-        return _stamp_abierta(use_case.abierta(**_repo_kwargs(params)), params)
+        kwargs = _repo_kwargs(params)
+        kwargs["anio"] = anio
+        return _stamp_abierta(use_case.abierta(**kwargs), params, anio)
     except CarteraUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
@@ -53,12 +57,15 @@ def get_abierta(
 @router.get("/unoee/aging", response_model=CarteraAging)
 def get_aging(
     params: dict = Depends(_common),
+    anio: int | None = Query(None, description="Año civil de fecha_docto. Sin año = todas las abiertas."),
     _: object = Depends(get_current_user),
     use_case: GetCartera = Depends(get_cartera_use_case),
 ) -> CarteraAging:
     try:
-        data = use_case.aging(**_repo_kwargs(params))
-        data.resumen = _stamp_abierta(data.resumen, params)
+        kwargs = _repo_kwargs(params)
+        kwargs["anio"] = anio
+        data = use_case.aging(**kwargs)
+        data.resumen = _stamp_abierta(data.resumen, params, anio)
         return data
     except CarteraUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -84,11 +91,14 @@ def get_canceladas(
 @router.get("/siesa/saldo", response_model=CarteraSiesaSaldo)
 def get_siesa(
     params: dict = Depends(_common),
+    anio: int | None = Query(None, description="Año civil de fecha_docto"),
     _: object = Depends(get_current_user),
     use_case: GetCartera = Depends(get_cartera_use_case),
 ) -> CarteraSiesaSaldo:
     try:
-        return use_case.siesa(**_repo_kwargs(params))
+        kwargs = _repo_kwargs(params)
+        kwargs["anio"] = anio
+        return use_case.siesa(**kwargs)
     except CarteraUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 

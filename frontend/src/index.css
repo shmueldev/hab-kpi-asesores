@@ -1348,6 +1348,73 @@ label {
   margin-top: 0;
 }
 
+.chat-mic,
+.chat-voice {
+  margin: 0;
+  flex-shrink: 0;
+  min-width: 4.6rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--navy);
+}
+
+.chat-mic.is-on {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #fff;
+  animation: robot-pop 0.35s ease;
+}
+
+.chat-voice.is-on {
+  background: #0b31a5;
+  border-color: #0b31a5;
+  color: #fff;
+}
+
+.chat-speech-note {
+  margin: 0.35rem 0 0;
+  color: var(--bad);
+  font-size: 0.82rem;
+}
+
+.chat-speech-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted-text, var(--border));
+}
+
+.uso-summary {
+  margin: 0 0 0.8rem;
+  font-weight: 600;
+}
+
+.uso-table-wrap {
+  overflow: auto;
+  padding: 0.6rem;
+}
+
+.uso-table th,
+.uso-table td {
+  font-size: 0.82rem;
+}
+
+.uso-cell {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #fff;
+}
+
+.uso-path {
+  max-width: 16rem;
+  font-size: 0.78rem;
+}
+
 [data-theme='dark'] label,
 [data-theme='dark'] .gauge-needle {
   color: #93c5fd;

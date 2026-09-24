@@ -100,7 +100,7 @@ export default function Dashboard() {
     const [kpi, mesesRes, carteraRes] = await Promise.all([
       fetchKpis(fechaIni, fechaFin, key),
       fetchKpiMeses(fechaIni, fechaFin, key).catch(() => null),
-      fetchCarteraBundle(),
+      fetchCarteraBundle(next.year),
     ])
     void extras
     return {
@@ -339,9 +339,9 @@ export default function Dashboard() {
                   delta={carteraTrend?.label || `Foto al ${cartera.as_of}`}
                   spark={carteraSpark}
                   subtitle={`${cartera.n_abiertas} cuotas${cartera.vendedor_nombre ? ` · ${cartera.vendedor_nombre}` : ''}`}
-                  detail={`Foto al ${cartera.as_of}`}
+                  detail={`Año ${period.year} · foto al ${cartera.as_of}`}
                   tone={carteraTrend?.tone || 'neutral'}
-                  onOpen={() => navigate('/detalle/cartera')}
+                  onOpen={() => navigate(`/detalle/cartera?anio=${period.year}`)}
                 />
               )}
             </section>
@@ -375,7 +375,7 @@ export default function Dashboard() {
                     { name: 'Gracia', value: cartera.gracia.monto },
                     { name: 'Vencida', value: cartera.vencida.monto },
                   ]}
-                  onOpen={() => navigate('/detalle/cartera')}
+                  onOpen={() => navigate(`/detalle/cartera?anio=${period.year}`)}
                 />
               )}
             </section>
@@ -439,7 +439,7 @@ export default function Dashboard() {
                       {
                         label: 'Cartera abierta',
                         value: formatMoney(cartera.abierta),
-                        hint: `SUM(valor) ABIERTA · ${cartera.n_abiertas} cuotas`,
+                        hint: `SUM(valor) ABIERTA · fecha_docto ${period.year} · ${cartera.n_abiertas} cuotas`,
                       },
                     ]
                   : []),
@@ -459,11 +459,11 @@ function isoLocal(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-async function fetchCarteraBundle(): Promise<{ cartera: CarteraAbierta | null; spark: number[] }> {
+async function fetchCarteraBundle(year: number): Promise<{ cartera: CarteraAbierta | null; spark: number[] }> {
   const prevEnd = isoLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 0))
   const [current, previous] = await Promise.all([
-    fetchCarteraAbierta().catch(() => null),
-    fetchCarteraAbierta({ as_of: prevEnd }).catch(() => null),
+    fetchCarteraAbierta({ anio: year }).catch(() => null),
+    fetchCarteraAbierta({ as_of: prevEnd, anio: year }).catch(() => null),
   ])
   const spark = [previous?.abierta, current?.abierta].filter((n): n is number => n != null)
   return { cartera: current, spark }

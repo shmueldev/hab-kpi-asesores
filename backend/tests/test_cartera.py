@@ -22,8 +22,15 @@ def test_dias_a_vcto_signo_invertido():
 
 def test_memory_abierta_identity_without_missing_vcto():
     repo = MemoryCarteraRepository()
-    data = repo.get_abierta(CarteraFilter(as_of=date(2026, 9, 21)))
+    data = repo.get_abierta(CarteraFilter(as_of=date(2026, 9, 21), anio=2026))
     assert data.abierta == data.al_dia.monto + data.gracia.monto + data.vencida.monto + data.sin_vcto.monto
+
+
+def test_sql_abierta_filters_year_on_fecha_docto():
+    from app.infrastructure.adapters.sql_cartera_repository import ABIERTA_SQL, AGING_SQL
+
+    assert "YEAR(CAST(f.fecha_docto AS date))" in ABIERTA_SQL
+    assert "YEAR(CAST(f.fecha_docto AS date))" in AGING_SQL
 
 
 def test_memory_canceladas_has_quarters():

@@ -51,6 +51,11 @@ export default function AppHeader({ subtitle, backTo, onReplayTour }: Props) {
             Guía
           </button>
         )}
+        {user.role === 'admin' && (
+          <button className="ghost no-print" type="button" onClick={() => navigate('/uso')}>
+            Uso
+          </button>
+        )}
         {backTo && (
           <button className="ghost no-print" type="button" onClick={() => navigate(backTo)}>
             Volver

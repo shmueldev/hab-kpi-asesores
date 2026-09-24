@@ -89,6 +89,8 @@ Si SQL y Redis fallan: **503**, no se pintan cifras inventadas.
 
 Fórmulas y tablas: [docs/kpis.md](docs/kpis.md).
 
+Guía con branding del tablero: carpeta [`docosauros`](docosauros) (`cd docosauros && npm start`).
+
 ## Licencia
 
 Uso interno.

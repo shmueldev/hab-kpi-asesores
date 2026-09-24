@@ -62,6 +62,7 @@ class CarteraBucket(BaseModel):
 
 class CarteraAbierta(BaseModel):
     as_of: date
+    anio: int | None = None
     abierta: float = 0.0
     n_abiertas: int = 0
     al_dia: CarteraBucket = Field(default_factory=CarteraBucket)

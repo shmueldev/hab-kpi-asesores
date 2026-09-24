@@ -75,8 +75,8 @@ export default function CarteraDetail() {
     void (async () => {
       try {
         const [agingRes, siesaRes, cancelRes] = await Promise.all([
-          fetchCarteraAging({ as_of: asOf }),
-          fetchCarteraSiesa().catch(() => null),
+          fetchCarteraAging({ as_of: asOf, anio }),
+          fetchCarteraSiesa({ anio }).catch(() => null),
           fetchCarteraCanceladas(anio, trimestre).catch(() => null),
         ])
         setAging(agingRes)
@@ -91,7 +91,7 @@ export default function CarteraDetail() {
 
   const who = aging?.resumen.vendedor_nombre
   const abierta = aging?.resumen.abierta ?? 0
-  const subtitle = useMemo(() => `Foto ${asOf}${who ? ` · ${who}` : ''}`, [asOf, who])
+  const subtitle = useMemo(() => `Año ${anio} · foto ${asOf}${who ? ` · ${who}` : ''}`, [anio, asOf, who])
   const ranking = useMemo(() => buildRanking(aging), [aging])
   const composition = useMemo(() => buildComposition(aging), [aging])
   const cubetas = uniqueSorted(aging?.detalle.map((row) => row.cubeta) || [])
@@ -137,7 +137,7 @@ export default function CarteraDetail() {
             <input type="date" value={asOf} onChange={(e) => patchParams({ as_of: e.target.value })} />
           </label>
           <label>
-            Año canceladas
+            Año
             <select value={anio} onChange={(e) => patchParams({ anio: e.target.value })}>
               {yearOptions().map((y) => (
                 <option key={y} value={y}>
@@ -162,7 +162,7 @@ export default function CarteraDetail() {
             </button>
           </div>
           <p className="range-hint">
-            Abierta y cubetas son foto a la fecha. Canceladas van por fecha_cancelacion. Siesa es saldo, sin trimestre.
+            Abierta, cubetas y Siesa recortan por fecha_docto del año. Canceladas van por fecha_cancelacion del año. La foto solo arma las cubetas.
           </p>
         </section>
         <ScopeBanner visible={user.role === 'admin' && asesorKey == null} />
@@ -221,8 +221,8 @@ export default function CarteraDetail() {
             </section>
             <BreakdownTable
               title="Resumen de cubetas"
-              description="d = as_of − fecha_vcto. Abierta $ = al día + gracia + vencida + sin vencimiento"
-              formula="d = as_of − fecha_vcto. Abierta $ = al día + gracia + vencida + sin vencimiento"
+              description={`Solo documentos con fecha_docto en ${anio}. Cubetas: d = as_of − fecha_vcto.`}
+              formula="YEAR(fecha_docto) = año · d = as_of − fecha_vcto"
               rows={[
                 { label: 'Abierta $', value: formatMoney(aging.resumen.abierta) },
                 { label: 'Al día', value: formatMoney(aging.resumen.al_dia.monto), hint: `${aging.resumen.al_dia.n} cuotas` },

@@ -198,6 +198,7 @@ export type CarteraBucket = { monto: number; n: number }
 
 export type CarteraAbierta = {
   as_of: string
+  anio?: number | null
   abierta: number
   n_abiertas: number
   al_dia: CarteraBucket
@@ -283,6 +284,7 @@ export type CarteraSiesaSaldo = {
 
 type CarteraQuery = {
   as_of?: string
+  anio?: number | null
   nit?: string
   asesor_key?: number | null
 }
@@ -381,6 +383,47 @@ export async function fetchPedidos(
     throw new Error('Sesión expirada')
   }
   if (!res.ok) throw new Error(await readError(res, 'Error al cargar pedidos'))
+  return res.json()
+}
+
+export type UsoUserDay = {
+  username: string
+  nombre: string | null
+  role: string
+  last_at: string | null
+  screens: Record<string, number>
+  path: string[]
+}
+
+export type UsoDayReport = {
+  fecha: string
+  redis: boolean
+  usuarios: UsoUserDay[]
+  total_hits: number
+  activos: number
+}
+
+export async function pingUso(screen: string): Promise<void> {
+  try {
+    await fetch(`${API_URL}/uso`, {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ screen }),
+    })
+  } catch {
+    /* Redis o red: no bloquea el tablero */
+  }
+}
+
+export async function fetchUso(fecha?: string): Promise<UsoDayReport> {
+  const params = fecha ? `?fecha=${fecha}` : ''
+  const res = await fetch(`${API_URL}/uso${params}`, { headers: authHeaders() })
+  if (res.status === 401) {
+    clearSession()
+    throw new Error('Sesión expirada')
+  }
+  if (res.status === 403) throw new Error('Solo el administrador ve el uso')
+  if (!res.ok) throw new Error(await readError(res, 'No se pudo cargar el uso'))
   return res.json()
 }
 

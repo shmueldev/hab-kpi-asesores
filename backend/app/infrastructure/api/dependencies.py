@@ -22,7 +22,9 @@ from app.infrastructure.adapters.file_kpi_cache import FileKpiCache
 from app.infrastructure.adapters.json_user_repository import JsonUserRepository
 from app.infrastructure.adapters.memory_kpi_cache import MemoryKpiCache
 from app.infrastructure.adapters.memory_kpi_repository import MemoryKpiRepository
+from app.infrastructure.adapters.memory_uso_store import MemoryUsoStore
 from app.infrastructure.adapters.redis_kpi_cache import RedisKpiCache
+from app.infrastructure.adapters.redis_uso_store import RedisUsoStore
 from app.infrastructure.adapters.sql_kpi_repository import SqlKpiRepository
 from app.infrastructure.adapters.memory_cartera_repository import MemoryCarteraRepository
 from app.infrastructure.adapters.memory_pedido_repository import MemoryPedidoRepository
@@ -34,11 +36,13 @@ from app.use_cases.get_kpi_dashboard import GetKpiDashboard
 from app.use_cases.get_kpi_monthly import GetKpiMonthly
 from app.use_cases.list_asesores import ListAsesores
 from app.use_cases.login import LoginUseCase, decode_token
+from app.use_cases.track_uso import TrackUso
 from app.use_cases.passwords import ChangePasswordUseCase, RecoverPasswordUseCase
 
 security = HTTPBearer(auto_error=True)
 
 _cache: KpiCachePort | None = None
+_uso: TrackUso | None = None
 _sql_repo: SqlKpiRepository | None = None
 _users: UserRepositoryPort | None = None
 _vendedor_map: VendedorMapPort | None = None
@@ -166,6 +170,14 @@ def get_recover_password_use_case(
     users: UserRepositoryPort = Depends(get_user_repository),
 ) -> RecoverPasswordUseCase:
     return RecoverPasswordUseCase(users)
+
+
+def get_uso_use_case() -> TrackUso:
+    global _uso
+    if _uso is None:
+        store = MemoryUsoStore() if use_demo_data() else RedisUsoStore(os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0"))
+        _uso = TrackUso(store)
+    return _uso
 
 
 def get_current_user(

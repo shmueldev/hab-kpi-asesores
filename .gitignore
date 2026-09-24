@@ -18,6 +18,11 @@ frontend/.env
 frontend/.env.local
 *.log
 
+# Docusaurus
+docosauros/node_modules/
+docosauros/build/
+docosauros/.docusaurus/
+
 # Secretos y datos locales
 backend/config/users.json
 backend/.cache/

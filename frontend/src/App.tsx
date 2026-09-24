@@ -2,6 +2,7 @@ import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { ChatProvider } from './chat/ChatContext'
 import BackToTop from './components/BackToTop'
 import ChatWidget from './components/ChatWidget'
+import UsageBeacon from './components/UsageBeacon'
 import ChangePassword from './pages/ChangePassword'
 import CarteraDetail from './pages/CarteraDetail'
 import Dashboard from './pages/Dashboard'
@@ -9,11 +10,13 @@ import KpiDetail from './pages/KpiDetail'
 import PedidosDetail from './pages/PedidosDetail'
 import Login from './pages/Login'
 import RecoverPassword from './pages/RecoverPassword'
+import UsoAdmin from './pages/UsoAdmin'
 
 function readUser() {
   try {
     return JSON.parse(localStorage.getItem('kpi_user') || '{}') as {
       must_change_password?: boolean
+      role?: string
     }
   } catch {
     return {}
@@ -27,6 +30,7 @@ function PrivateLayout() {
   return (
     <ChatProvider>
       <AnimatedPage />
+      <UsageBeacon />
       <ChatWidget />
       <BackToTop />
     </ChatProvider>
@@ -50,6 +54,7 @@ export default function App() {
       <Route path="/cambiar-clave" element={<ChangePassword />} />
       <Route element={<PrivateLayout />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/uso" element={readUser().role === 'admin' ? <UsoAdmin /> : <Navigate to="/" replace />} />
         <Route path="/detalle/cartera" element={<CarteraDetail />} />
         <Route path="/detalle/pedidos" element={<PedidosDetail />} />
         <Route path="/detalle/:kpi" element={<KpiDetail />} />

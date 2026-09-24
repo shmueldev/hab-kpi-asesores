@@ -27,6 +27,8 @@ AND (? IS NULL OR f.sucursal_cliente_key = ?)
 AND (? IS NULL OR sc.id_sucursal = ?)
 """
 
+UNOEE_YEAR = "AND (? IS NULL OR YEAR(CAST(f.fecha_docto AS date)) = ?)"
+
 ABIERTA_SQL = f"""
 SELECT
     COALESCE(SUM(CASE WHEN f.estado_cartera = N'ABIERTA' THEN f.valor ELSE 0 END), 0),
@@ -48,6 +50,7 @@ SELECT
 FROM dbo.fact_cartera_unoee f
 LEFT JOIN dbo.dim_sucursal_cliente sc ON sc.sucursal_cliente_key = f.sucursal_cliente_key
 WHERE {UNOEE_WHERE}
+  {UNOEE_YEAR}
 """
 
 AGING_SQL = f"""
@@ -68,6 +71,7 @@ LEFT JOIN dbo.dim_sucursal_cliente sc ON sc.sucursal_cliente_key = f.sucursal_cl
 LEFT JOIN dbo.dim_vendedor_unoee vu ON vu.vendedor_rowid = f.vendedor_rowid
 WHERE f.estado_cartera = N'ABIERTA'
   AND {UNOEE_WHERE}
+  {UNOEE_YEAR}
 ORDER BY f.valor DESC
 """
 
@@ -113,6 +117,7 @@ SELECT
 FROM dbo.fact_cartera
 WHERE (? IS NULL OR nit = ?)
   AND (? IS NULL OR codigo_vendedor = ?)
+  AND (? IS NULL OR YEAR(CAST(fecha_docto AS date)) = ?)
 """
 
 SIESA_DET_SQL = """
@@ -122,6 +127,7 @@ SELECT TOP 200
 FROM dbo.fact_cartera
 WHERE (? IS NULL OR nit = ?)
   AND (? IS NULL OR codigo_vendedor = ?)
+  AND (? IS NULL OR YEAR(CAST(fecha_docto AS date)) = ?)
 ORDER BY total DESC
 """
 
@@ -139,6 +145,10 @@ def _unoee_params(filters: CarteraFilter) -> tuple:
     )
 
 
+def _year_params(filters: CarteraFilter) -> tuple:
+    return (filters.anio, filters.anio)
+
+
 def _as_date(value) -> date | None:
     if value is None:
         return None
@@ -153,9 +163,14 @@ class SqlCarteraRepository(CarteraPort):
         try:
             cursor = conn.cursor()
             as_of = filters.as_of
-            cursor.execute(ABIERTA_SQL, (as_of, as_of, as_of, as_of, as_of, as_of, *_unoee_params(filters)))
+            cursor.execute(
+                ABIERTA_SQL,
+                (as_of, as_of, as_of, as_of, as_of, as_of, *_unoee_params(filters), *_year_params(filters)),
+            )
             row = cursor.fetchone()
-            return _abierta_from_row(as_of, row)
+            data = _abierta_from_row(as_of, row)
+            data.anio = filters.anio
+            return data
         finally:
             conn.close()
 
@@ -164,7 +179,7 @@ class SqlCarteraRepository(CarteraPort):
         conn = get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute(AGING_SQL, _unoee_params(filters))
+            cursor.execute(AGING_SQL, (*_unoee_params(filters), *_year_params(filters)))
             detalle: list[CarteraAgingRow] = []
             vend: dict[str, CarteraSerie] = {}
             cli: dict[str, CarteraSerie] = {}
@@ -261,7 +276,7 @@ class SqlCarteraRepository(CarteraPort):
         try:
             cursor = conn.cursor()
             codigo = _siesa_codigo(filters.codigo_vendedor)
-            params = (filters.nit, filters.nit, codigo, codigo)
+            params = (filters.nit, filters.nit, codigo, codigo, filters.anio, filters.anio)
             cursor.execute(SIESA_SQL, params)
             row = cursor.fetchone()
             cursor.execute(SIESA_DET_SQL, params)
